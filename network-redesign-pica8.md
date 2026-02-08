@@ -1,7 +1,7 @@
 # Network Redesign: 10Gbps Infrastructure with Pica8 P3922
 
 **Date:** 2026-02-07
-**Status:** Phase 1 Complete (LACP bonds configured), Phase 2 Pending (Firewalla 10G uplink)
+**Status:** Phase 1 In Progress - pm01 migrated ✓, wily pending, Firewalla 10G uplink pending
 
 ---
 
@@ -491,15 +491,163 @@ scp admin@192.168.33.252:pica8-config-backup-*.txt ~/backups/
 
 ---
 
+## Implementation Progress (2026-02-07)
+
+### Completed Today
+
+#### 1. Pica8 Management Configuration ✓
+- **Management DHCP enabled** - Switch picks up IP automatically on any network
+- **Current management IP:** 10.10.2.100/24 (DHCP)
+- **Accessible from:** 10.10.2.x network (Firewalla LAN)
+
+#### 2. VLAN Configuration ✓
+Created and configured VLANs matching Firewalla networks:
+- **VLAN 100** - Media (192.168.22.x)
+- **VLAN 200** - Management (10.10.10.x)
+- **VLAN 300** - Home (192.168.147.x)
+- **VLAN 400** - Phreesia (192.168.136.x)
+- **VLAN 500** - Funlab (10.200.200.x)
+- **VLAN 1** - Untagged/Native (10.10.2.x)
+
+#### 3. Firewalla Trunk Link ✓
+- **Port:** te-1/1/7
+- **Configuration:** Trunk mode with all VLANs (100, 200, 300, 400, 500) + native VLAN 1
+- **Current connection:** Firewalla Port 2 (2.5G) → Pica8 te-1/1/7 (1G SFP+ DAC temporary)
+- **Status:** Active, trunk working, all VLANs passing
+- **Future:** Will upgrade to 10GBASE-T module when arrives
+
+**Firewalla Configuration:**
+- Port 1 (10G): Currently connected to Netgear (existing WiFi path)
+- Port 2 (2.5G): Configured as VLAN trunk → Pica8 te-1/1/7
+
+#### 4. pm01 Migration Complete ✓
+**Switch Configuration:**
+- **Bond:** ae2 (LACP 802.3ad)
+- **Ports:** te-1/1/3 + te-1/1/4 (10G SFP+ DAC)
+- **VLAN:** 500 (Funlab - 10.200.200.x) access mode
+- **Status:** LACP fully formed, State 0x3F (collecting/distributing)
+
+**pm01 Host Configuration:**
+- **OS:** Proxmox VE
+- **Bond:** bond0 (802.3ad LACP)
+- **Interfaces:** enp2s0f0np0 + enp2s0f1np1
+- **Bridge:** vmbr0 (Proxmox bridge using bond0)
+- **IP:** 10.200.200.10/24
+- **MTU:** 9000 (jumbo frames)
+- **Status:** LACP active, Aggregator ID: 2, both links 10Gbps full duplex
+- **Connectivity:** Verified - pings to gateway and internet working
+
+**Migration Method:**
+- Used gradual migration: kept one port on Netgear during config
+- Configured bond while maintaining connectivity
+- Moved both ports to Pica8 once bond configured
+- Zero IRC downtime during migration
+
+### In Progress
+
+#### 5. wily Migration (Next)
+**Switch Configuration:** ae3 ready
+- **Bond:** ae3 (LACP 802.3ad)
+- **Ports:** te-1/1/5 + te-1/1/6 (10G SFP+ DAC)
+- **VLAN:** 500 (Funlab - 10.200.200.x) access mode
+- **Status:** Configured, awaiting host-side LACP
+
+**Next Steps:**
+1. Connect wily port 2 → Pica8 te-1/1/6 (keep port 1 on Netgear)
+2. Configure TrueNAS LACP via web UI
+3. Move wily port 1 → Pica8 te-1/1/5
+4. Verify LACP forms
+5. Test connectivity
+
+### Pending (After wily Migration)
+
+#### 6. Netgear Migration
+Once pm01 and wily are migrated, Netgear SFP+ ports will be free:
+1. Configure ae1 (Netgear bond) as trunk with all VLANs
+2. Configure Netgear LACP on both SFP+ ports
+3. Connect Netgear → Pica8 te-1/1/1 + te-1/1/2
+4. WiFi APs traffic flows: APs → Netgear → Pica8 → Firewalla
+5. Disconnect Firewalla Port 1 from Netgear
+
+#### 7. Firewalla 10G Upgrade (Tomorrow - when 10GBASE-T module arrives)
+1. Disconnect Firewalla Port 2 temporary link
+2. Swap 1G SFP+ module → 10GBASE-T SFP+ module on te-1/1/7
+3. Move Firewalla Port 1 (10G) → Pica8 te-1/1/7
+4. Full 10G trunk active with all VLANs
+5. Run speedtest - expect 5+ Gbps!
+
+### Network State Diagram
+
+**Current (During Migration):**
+```
+Internet
+   |
+Firewalla Gold Pro
+   |                    |
+Port 1 (10G)         Port 2 (2.5G Trunk)
+   |                    |
+Netgear              Pica8 te-1/1/7 (1G temp)
+   |                    |
+WiFi APs          +-----+------+
+  (Active)        |            |
+               ae2 (pm01)   ae3 (wily)
+                  |            |
+              pm01 ✓      wily (pending)
+```
+
+**Target (After Full Migration):**
+```
+Internet
+   |
+Firewalla Gold Pro
+   |
+Port 1 (10G Trunk - all VLANs)
+   |
+Pica8 te-1/1/7
+   |
+   +----------+----------+----------+
+   |          |          |          |
+  ae1        ae2        ae3      (other)
+   |          |          |
+Netgear     pm01       wily
+   |
+WiFi APs
+```
+
+### Key Learnings
+
+1. **DHCP Management:** Rebooting the switch after removing static IP and gateway enabled DHCP automatically
+2. **VLAN Trunking:** Firewalla supports multiple ports as VLAN trunks (Port 1 + Port 2 both trunking)
+3. **Gradual Migration:** Keeping one interface on old network during bond configuration prevents downtime
+4. **Proxmox Bonding:** Must bridge the bond (bond0 → vmbr0), not the individual interfaces
+5. **LACP Verification:** Same Aggregator ID = LACP formed; State 0x3F = fully active
+6. **Zero-Downtime Possible:** With dual trunk ports, migration can be done without WiFi/IRC interruption
+
+### Hardware Inventory Used
+
+- **10G SFP+ DAC cables:** 4 (pm01 x2, wily x2 pending, Netgear x2 pending)
+- **1G SFP+ module:** 1 (temporary Firewalla uplink)
+- **10GBASE-T SFP+ module:** 1 (on order, arrives tomorrow)
+- **Cat6a/Cat7 cables:** 1 (for 10GBASE-T Firewalla connection)
+
+---
+
 ## Change Log
 
 | Date | Change | Status |
 |------|--------|--------|
 | 2026-02-06 | Identified 1Gbps bottleneck via speedtest | Complete |
-| 2026-02-07 | Configured Pica8 P3922 LACP bonds (ae1, ae2, ae3) | Complete |
-| 2026-02-07 | Prepared Firewalla uplink port (te-1/1/7) | Complete |
-| 2026-02-08 | Install 10GBASE-T SFP+ module (pending arrival) | Pending |
-| 2026-02-08 | Connect Firewalla 10G uplink | Pending |
+| 2026-02-07 | Configured Pica8 management DHCP (10.10.2.100) | Complete |
+| 2026-02-07 | Created VLANs 100, 200, 300, 400, 500 on Pica8 | Complete |
+| 2026-02-07 | Configured te-1/1/7 as VLAN trunk to Firewalla | Complete |
+| 2026-02-07 | Connected Firewalla Port 2 → Pica8 (1G temp trunk) | Complete |
+| 2026-02-07 | Configured ae2 (pm01) LACP bond on VLAN 500 | Complete |
+| 2026-02-07 | Migrated pm01 to Pica8 with LACP bonding | Complete |
+| 2026-02-07 | Verified pm01 connectivity and LACP status | Complete |
+| 2026-02-07 | Migrate wily to Pica8 with LACP bonding | In Progress |
+| 2026-02-07 | Migrate Netgear to Pica8 LACP trunk | Pending |
+| 2026-02-08 | Install 10GBASE-T SFP+ module (arriving tomorrow) | Pending |
+| 2026-02-08 | Upgrade Firewalla Port 1 to Pica8 (10G trunk) | Pending |
 | 2026-02-08 | Performance test - verify 5+ Gbps | Pending |
 
 ---
