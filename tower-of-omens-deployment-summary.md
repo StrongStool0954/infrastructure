@@ -154,6 +154,7 @@ ssh ca uptime     # ✅ 3 min uptime
 - [spire-tpm-config.md](spire-tpm-config.md) - spire TPM configuration
 - [auth-tpm-config.md](auth-tpm-config.md) - auth TPM configuration
 - [ca-tpm-config.md](ca-tpm-config.md) - ca TPM configuration
+- [spire-server-config.md](spire-server-config.md) - SPIRE Server configuration
 
 ### Process Docs
 - [tower-of-omens-onboarding.md](tower-of-omens-onboarding.md) - Complete onboarding procedure
@@ -188,10 +189,18 @@ sudo update-initramfs -u -k all
 
 ---
 
+## Services Deployed
+
+### spire.funlab.casa
+- ✅ **SPIRE Server 1.14.1:** Running and healthy
+  - Trust Domain: funlab.casa
+  - Listening on port 8081
+  - Configuration: [spire-server-config.md](spire-server-config.md)
+
 ## Next Steps (Future)
 
 ### Planned Deployments
-- [ ] SPIRE Server on spire.funlab.casa
+- [x] SPIRE Server on spire.funlab.casa ✅ **COMPLETE**
 - [ ] OpenBao Server on spire.funlab.casa
 - [ ] step-ca integration with SPIRE/OpenBao
 - [ ] SPIRE Agents on other infrastructure hosts

@@ -1,0 +1,49 @@
+{
+  "root": "/etc/step-ca/certs/root_ca.crt",
+  "federatedRoots": null,
+  "crt": "/etc/step-ca/certs/intermediate_ca.crt",
+  "key": "pkcs11:id=%02;object=Private%20key%20for%20Digital%20Signature",
+  "address": ":443",
+  "insecureAddress": "",
+  "dnsNames": [
+    "ca.funlab.casa"
+  ],
+  "logger": {
+    "format": "text"
+  },
+  "db": {
+    "type": "badgerv2",
+    "dataSource": "/etc/step-ca/db",
+    "badgerFileLoadingMode": ""
+  },
+  "authority": {
+    "provisioners": [
+      {
+        "type": "JWK",
+        "name": "tower-of-omens",
+        "key": {
+          "use": "sig",
+          "kty": "EC",
+          "kid": "GRXLPijSu26raitoqOCJjzXHcQ3feE0oBUDEMLt1JD4",
+          "crv": "P-256",
+          "alg": "ES256",
+          "x": "efUorfFb6_6SQzEZj8IY2ZAcMIjdrsCVWNj-l6qZ70Y",
+          "y": "XeMVbmj1FUkjmW6iy9lCv_GEal0dGsRiF5KnTh1JkUI"
+        }
+      }
+    ]
+  },
+  "tls": {
+    "cipherSuites": [
+      "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+      "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
+    ],
+    "minVersion": 1.2,
+    "maxVersion": 1.3,
+    "renegotiation": false
+  },
+  "kms": {
+    "type": "pkcs11",
+    "uri": "pkcs11:module-path=/usr/lib/x86_64-linux-gnu/libykcs11.so;token=YubiKey%20PIV%20%235497305;pin-source=file:///run/step-ca/yubikey-pin"
+  }
+}

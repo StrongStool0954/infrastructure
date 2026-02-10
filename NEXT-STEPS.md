@@ -1,0 +1,265 @@
+# Tower of Omens - Next Steps (Hybrid TPM Approach)
+
+**Date:** 2026-02-10
+**Current Sprint:** Sprint 1 - Foundation & Service Deployment
+**Strategy:** Hybrid Approach - EK now, DevID later
+
+---
+
+## ✅ What We've Accomplished Today
+
+### TPM Hardware Validation
+- ✅ Validated TPM 2.0 on all three hosts (Infineon)
+- ✅ Extracted EK certificates from all TPMs
+- ✅ Downloaded and validated Infineon CA chain
+- ✅ Verified certificate chains (all valid until 2032)
+- ✅ Documented TPM capabilities and security model
+
+### SPIRE Server Deployment
+- ✅ SPIRE Server 1.14.1 installed and running
+- ✅ Trust domain configured: funlab.casa
+- ✅ Using join_token attestation (temporary)
+- ✅ Health check: Passing
+- ✅ Ready for agent deployment
+
+### Documentation Created
+- ✅ [tower-of-omens-tpm-attestation-plan.md](tower-of-omens-tpm-attestation-plan.md) - Full architecture & hybrid approach
+- ✅ [tower-of-omens-tpm-validation.md](tower-of-omens-tpm-validation.md) - TPM validation results
+- ✅ [spire-server-config.md](spire-server-config.md) - SPIRE Server configuration
+- ✅ [tower-of-omens-deployment-summary.md](tower-of-omens-deployment-summary.md) - Overall deployment status
+
+---
+
+## 🎯 Strategic Decision: Hybrid TPM Approach
+
+### EK vs DevID Comparison
+
+| Aspect | EK Certificates | DevID Certificates |
+|--------|-----------------|-------------------|
+| **Status** | ✅ Have them now | ❌ Need to provision |
+| **Complexity** | Low | Medium |
+| **Time to Deploy** | 1-2 days | 3-5 days (after step-ca) |
+| **Enterprise Grade** | Good | Better |
+| **Rotation** | Never (fixed) | Yes (90 days) |
+| **Issuer** | Infineon | step-ca (our CA) |
+
+### Our Decision: Hybrid Approach
+
+```
+Phase 1 (NOW):        Phase 2 (LATER):
+└── join_token        └── tpm_devid (DevID attestation)
+    (temporary)           (enterprise-grade)
+```
+
+**Why:**
+1. ✅ Don't block step-ca/OpenBao deployment waiting for TPM
+2. ✅ Get services running with join_token now
+3. ✅ Deploy step-ca (needed for DevID provisioning anyway)
+4. ✅ Provision DevID certificates properly
+5. ✅ Migrate to TPM DevID attestation (no service disruption)
+6. ✅ End up with best-practice enterprise solution
+
+---
+
+## 📋 Immediate Next Steps (Sprint 1 Completion)
+
+### Option A: Deploy step-ca First (Recommended)
+**Why:** Needed for DevID provisioning, certificate management
+
+1. **Deploy step-ca on ca.funlab.casa**
+   - Certificate Authority service
+   - Will issue DevID certificates to TPMs
+   - Also used for service certificates
+
+2. **Configure step-ca**
+   - Root CA setup
+   - Provisioners for Tower of Omens
+   - Integration with SPIRE
+
+3. **Test Certificate Issuance**
+   - Issue test certificate
+   - Verify CA chain
+   - Document workflow
+
+**Timeline:** 1 day
+**Next After:** Deploy OpenBao
+
+### Option B: Deploy OpenBao First
+**Why:** Secrets management needed for applications
+
+1. **Deploy OpenBao on spire.funlab.casa**
+   - Open-source Vault replacement
+   - Secrets management
+   - Uses join_token temporarily
+
+2. **Configure OpenBao**
+   - Storage backend
+   - Auto-unseal (future: integrate with TPM)
+   - Access policies
+
+3. **Test Secrets Management**
+   - Store/retrieve secrets
+   - Verify access controls
+   - Document workflow
+
+**Timeline:** 1 day
+**Next After:** Deploy step-ca
+
+### Option C: Deploy SPIRE Agents
+**Why:** Get workload identity infrastructure ready
+
+1. **Deploy SPIRE Agent on auth.funlab.casa**
+   - Uses join_token (temporary)
+   - Ready for migration to DevID later
+
+2. **Deploy SPIRE Agent on ca.funlab.casa**
+   - Same configuration
+
+3. **Test Agent Attestation**
+   - Verify agents attest successfully
+   - Test SVID issuance
+
+**Timeline:** Half day
+**Next After:** Deploy step-ca & OpenBao
+
+---
+
+## 🗓️ Updated Timeline (4-Week Plan)
+
+### Sprint 1: Foundation (Current Week)
+- [x] Validate TPM hardware ✅ COMPLETE
+- [x] Deploy SPIRE Server ✅ COMPLETE
+- [ ] Deploy step-ca **← NEXT**
+- [ ] Deploy OpenBao
+- [ ] Deploy SPIRE Agents (with join_token)
+- [ ] Register initial workloads
+
+**Deliverables:**
+- Working SPIRE infrastructure (join_token)
+- step-ca operational
+- OpenBao operational
+- Services using SPIRE SVIDs
+- **Ready for DevID provisioning**
+
+### Sprint 2: DevID Provisioning (Week 2)
+- [ ] Create DevID provisioning workflow
+- [ ] Generate DevID keys in TPMs
+- [ ] Issue DevID certificates via step-ca
+- [ ] Test tpm_devid plugin on one agent
+- [ ] Document DevID lifecycle
+
+**Deliverables:**
+- All hosts have DevID certificates
+- DevID attestation tested and working
+- Provisioning workflow documented
+- **Ready for migration**
+
+### Sprint 3: TPM Migration (Week 3)
+- [ ] Update SPIRE Server with tpm_devid plugin
+- [ ] Migrate agents to DevID attestation (rolling)
+- [ ] Verify all workloads still functioning
+- [ ] Remove join_token plugin
+- [ ] Update onboarding docs
+
+**Deliverables:**
+- All agents using TPM DevID attestation
+- join_token removed
+- Hardware-backed trust operational
+- **Production-ready TPM attestation**
+
+### Sprint 4: Hardening (Week 4)
+- [ ] Implement DevID rotation automation
+- [ ] Set up monitoring/alerting
+- [ ] Security audit
+- [ ] Load testing
+- [ ] Disaster recovery procedures
+
+**Deliverables:**
+- Production-hardened infrastructure
+- Full documentation
+- Runbooks for operations
+- **Tower of Omens complete**
+
+---
+
+## 🤔 What Should We Do Next?
+
+### My Recommendation: Deploy step-ca First
+
+**Reasoning:**
+1. **Foundation for DevID:** We need step-ca to provision DevID certificates
+2. **Multiple Uses:** step-ca will also handle service certificates, not just DevID
+3. **Natural Flow:** step-ca → DevID provisioning → TPM migration
+4. **Lower Risk:** Get CA operational before depending on it
+
+**Alternative View:** Deploy OpenBao first if you need secrets management immediately
+
+---
+
+## 📊 Current State Summary
+
+### Infrastructure Status
+```
+spire.funlab.casa (10.10.2.62)
+├── ✅ TPM 2.0 validated
+├── ✅ LUKS auto-unlock working
+├── ✅ SPIRE Server running (join_token)
+└── ⏳ OpenBao (pending)
+
+auth.funlab.casa (10.10.2.70)
+├── ✅ TPM 2.0 validated
+├── ✅ LUKS auto-unlock working
+└── ⏳ SPIRE Agent (pending)
+
+ca.funlab.casa (10.10.2.60)
+├── ✅ TPM 2.0 validated
+├── ✅ LUKS auto-unlock working
+├── ⏳ step-ca (pending)
+└── ⏳ SPIRE Agent (pending)
+```
+
+### Security Layers
+```
+✅ Layer 1: TPM Hardware (validated)
+✅ Layer 2: Disk Encryption (operational)
+⏳ Layer 3: Node Identity (join_token temporary)
+⏳ Layer 4: Workload Identity (pending)
+⏳ Layer 5: Service mTLS (pending)
+```
+
+---
+
+## 🎬 Decision Time
+
+**What would you like to deploy next?**
+
+**A) step-ca** - Certificate Authority (recommended for DevID path)
+**B) OpenBao** - Secrets Management (if secrets needed urgently)
+**C) SPIRE Agents** - Workload identity infrastructure
+**D) Review plan** - Questions or adjustments before proceeding
+
+---
+
+## 📚 Reference Documentation
+
+### Planning & Architecture
+- [tower-of-omens-tpm-attestation-plan.md](tower-of-omens-tpm-attestation-plan.md) - Full TPM strategy
+- [tower-of-omens-tpm-validation.md](tower-of-omens-tpm-validation.md) - TPM validation results
+- [SPIRE-OPENBAO-PREDEPLOYMENT.md](../projects/funlab-docs/docs/infrastructure/migrations/SPIRE-OPENBAO-PREDEPLOYMENT.md) - Original plan
+
+### Deployment Docs
+- [tower-of-omens-deployment-summary.md](tower-of-omens-deployment-summary.md) - Current status
+- [tower-of-omens-onboarding.md](tower-of-omens-onboarding.md) - Host onboarding
+- [spire-server-config.md](spire-server-config.md) - SPIRE configuration
+
+### TPM Configs (Disk Encryption)
+- [spire-tpm-config.md](spire-tpm-config.md) - spire LUKS/TPM
+- [auth-tpm-config.md](auth-tpm-config.md) - auth LUKS/TPM
+- [ca-tpm-config.md](ca-tpm-config.md) - ca LUKS/TPM
+
+---
+
+**Current Status:** ✅ Sprint 1 ~80% complete
+**Next Action:** Deploy step-ca on ca.funlab.casa
+**Timeline:** 2-3 hours to get step-ca operational
+**Risk:** Low - established technology, clear documentation
