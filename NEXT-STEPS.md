@@ -171,11 +171,21 @@ Phase 1 (NOW):        Phase 2 (LATER):
   - OpenBao retrieves SVID in 2.76ms ✅
   - All 3 hosts now have SPIRE Agents
 
-**Phase 2: JWT Authentication Integration** ⏳ **NEXT**
-- [ ] Configure SPIRE Server JWT-SVID issuer (OIDC discovery)
-- [ ] Update OpenBao JWT auth configuration
-- [ ] Test end-to-end JWT authentication (workload → OpenBao)
-- [ ] Verify secrets retrieval without static credentials
+**Phase 2: JWT Authentication Integration** ✅ **COMPLETE (2026-02-10)**
+- [x] Configure SPIRE Server JWT-SVID issuer
+  - Bundle endpoint operational on port 8443
+  - JWKS serving JWT public keys
+- [x] Deploy nginx TLS proxy with step-ca certificate
+  - Port 8444 with 24-hour certificate
+  - Proxies to SPIRE bundle endpoint
+- [x] Configure OpenBao JWT auth
+  - JWKS URL: https://spire.funlab.casa:8444/
+  - Role: spire-workload
+  - Policy: spire-workload-policy
+- [x] Test end-to-end JWT authentication
+  - step-ca → JWT-SVID → OpenBao → Token → Secret ✅
+  - Zero static credentials! ✅
+  - Secret retrieved: "Hello from SPIRE workload!" ✅
 
 **Phase 3: TPM DevID Provisioning**
 - [ ] Configure step-ca for DevID issuance
@@ -299,7 +309,7 @@ ca.funlab.casa (10.10.2.60)
 
 ---
 
-**Current Status:** 🚀 Sprint 2 Phase 1 **COMPLETE!** (25% of Sprint 2)
-**Next Action:** Configure SPIRE Server JWT-SVID issuer (Phase 2)
-**Timeline:** 2-3 hours for JWT authentication integration
-**Risk:** Medium - new SPIRE features, well-documented
+**Current Status:** 🚀 Sprint 2 Phase 2 **COMPLETE!** (50% of Sprint 2)
+**Next Action:** TPM DevID Provisioning (Phase 3)
+**Timeline:** 2-3 hours for DevID certificate provisioning
+**Risk:** Medium - TPM operations, step-ca integration
