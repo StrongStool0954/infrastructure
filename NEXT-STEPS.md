@@ -129,8 +129,12 @@ Phase 1 (NOW):        Phase 2 (LATER):
 ### Sprint 1: Foundation (Current Week)
 - [x] Validate TPM hardware ✅ COMPLETE
 - [x] Deploy SPIRE Server ✅ COMPLETE
-- [ ] Deploy step-ca **← NEXT**
-- [ ] Deploy OpenBao
+- [x] Deploy step-ca ✅ **COMPLETE (2026-02-10)**
+  - Hardware-backed with YubiKey NEO
+  - ACME with Bunny.net DNS-01
+  - Zero hardcoded secrets
+  - Production ready
+- [ ] Deploy OpenBao **← NEXT**
 - [ ] Deploy SPIRE Agents (with join_token)
 - [ ] Register initial workloads
 
