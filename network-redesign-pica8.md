@@ -45,18 +45,18 @@
                            | 10G SFP+ (te-1/1/7)
                            |
                   Pica8 P3922 Core Switch
-                  (192.168.33.252 mgmt)
+                  (10.10.2.100 mgmt)
                            |
-        +------------------+------------------+
-        |                  |                  |
-       ae1                ae2                ae3
-    (20Gbps)           (20Gbps)           (20Gbps)
-        |                  |                  |
-    Netgear            pm01.funlab        wily.funlab
-    MS510TXUP          (Proxmox)          (TrueNAS)
-        |
-   WiFi Backbone
-   3x Access Points
+        +------------------+------------------+------------------+
+        |                  |                  |                  |
+       ae1                ae2                ae3            te-1/1/48
+    (20Gbps)           (20Gbps)           (20Gbps)          (10Gbps)
+        |                  |                  |                  |
+    Netgear            pm01.funlab        wily.funlab      Secondary
+    MS510TXUP          (Proxmox)          (TrueNAS)         Switch
+        |                                                        |
+   WiFi Backbone                                    ca, spire, vault, auth
+   3x Access Points                                      (VLAN 1)
 ```
 
 ---
@@ -69,6 +69,7 @@
 | **2** | pm01.funlab.casa | te-1/1/3, te-1/1/4 | ae2 | 10G SFP+ DAC | 20Gbps | Proxmox host |
 | **3** | wily.funlab.casa | te-1/1/5, te-1/1/6 | ae3 | 10G SFP+ DAC | 20Gbps | TrueNAS storage |
 | **4** | Firewalla Gold Pro | te-1/1/7 | - | 10GBASE-T SFP+ | 10Gbps | Internet uplink |
+| **5** | Secondary Switch | te-1/1/48 | - | 10G SFP+ | 10Gbps | Trunk to ca/spire/vault/auth servers (VLAN 1) |
 
 ---
 
@@ -125,6 +126,17 @@ set interface gigabit-ethernet te-1/1/7 family ethernet-switching native-vlan-id
 set interface gigabit-ethernet te-1/1/7 family ethernet-switching port-mode access
 set interface gigabit-ethernet te-1/1/7 mtu 9216
 set interface gigabit-ethernet te-1/1/7 description "Firewalla-Uplink-10G"
+
+# te-1/1/48 - Secondary Switch for ca/spie/vault servers
+set interface gigabit-ethernet te-1/1/48 family ethernet-switching port-mode trunk
+set interface gigabit-ethernet te-1/1/48 family ethernet-switching vlan members 100
+set interface gigabit-ethernet te-1/1/48 family ethernet-switching vlan members 200
+set interface gigabit-ethernet te-1/1/48 family ethernet-switching vlan members 300
+set interface gigabit-ethernet te-1/1/48 family ethernet-switching vlan members 400
+set interface gigabit-ethernet te-1/1/48 family ethernet-switching vlan members 500
+set interface gigabit-ethernet te-1/1/48 family ethernet-switching native-vlan-id 1
+set interface gigabit-ethernet te-1/1/48 mtu 9216
+set interface gigabit-ethernet te-1/1/48 description "Trunk-to-Secondary-Switch-ca-spire-vault-auth"
 
 # Commit and save
 commit
@@ -222,6 +234,37 @@ ip link show bond0
 **Verify:**
 - Check **Network → Link Aggregations** status
 - Both member ports should show "ACTIVE"
+
+### 4. Secondary Switch (ca, spire, vault, auth servers)
+
+**Port 48 Configuration:**
+- Connected to a secondary switch via 10G SFP+
+- Configured as VLAN trunk carrying VLANs 1, 100, 200, 300, 400, 500
+- Provides connectivity for ca, spire, vault, and auth servers on VLAN 1
+
+**Secondary Switch Configuration:**
+
+**Uplink Port (connects to Pica8 te-1/1/48):**
+1. Configure uplink port as trunk
+2. Tagged VLANs: 100, 200, 300, 400, 500
+3. Native VLAN: 1
+
+**Access Ports (for ca, spire, vault, auth):**
+1. Configure as access ports
+2. Assign to VLAN 1 (Native/Default)
+3. Servers will be on 10.10.2.x/24 network
+
+**Server Network Configuration:**
+Each server should be configured with:
+- **Network:** 10.10.2.x/24 (VLAN 1 - Native)
+- **Gateway:** 10.10.2.1 (Firewalla)
+- **DNS:** As appropriate for your network
+
+**Server IP Assignments (from DNS):**
+- ca.funlab.casa: 10.10.2.60
+- spire.funlab.casa: 10.10.2.62
+- vault.funlab.casa: 10.10.2.60 (same host as ca)
+- auth.funlab.casa: 10.10.2.70
 
 ---
 
@@ -605,13 +648,15 @@ Port 1 (10G Trunk - all VLANs)
    |
 Pica8 te-1/1/7
    |
-   +----------+----------+----------+
+   +----------+----------+----------+----------+
+   |          |          |          |          |
+  ae1        ae2        ae3     te-1/1/48  (other)
    |          |          |          |
-  ae1        ae2        ae3      (other)
-   |          |          |
-Netgear     pm01       wily
-   |
-WiFi APs
+Netgear     pm01       wily    Secondary
+   |                             Switch
+WiFi APs                           |
+                         ca, spire, vault, auth
+                              (VLAN 1)
 ```
 
 ### Key Learnings
@@ -649,9 +694,11 @@ WiFi APs
 | 2026-02-08 | Install 10GBASE-T SFP+ module (arriving tomorrow) | Pending |
 | 2026-02-08 | Upgrade Firewalla Port 1 to Pica8 (10G trunk) | Pending |
 | 2026-02-08 | Performance test - verify 5+ Gbps | Pending |
+| 2026-02-09 | Configure te-1/1/48 as VLAN trunk for secondary switch | Complete |
+| 2026-02-09 | Connect secondary switch for ca/spire/vault/auth servers (VLAN 1) | Complete |
 
 ---
 
 **Author:** Claude Code Assistant
-**Last Updated:** 2026-02-07
-**Configuration Status:** Phase 1 Complete, Phase 2 Pending Hardware
+**Last Updated:** 2026-02-09
+**Configuration Status:** Phase 1 Complete, Phase 2 Pending Hardware, Port 48 Secondary Switch Added
