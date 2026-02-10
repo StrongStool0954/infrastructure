@@ -134,8 +134,12 @@ Phase 1 (NOW):        Phase 2 (LATER):
   - ACME with Bunny.net DNS-01
   - Zero hardcoded secrets
   - Production ready
-- [ ] Deploy OpenBao **← NEXT**
-- [ ] Deploy SPIRE Agents (with join_token)
+- [x] Deploy OpenBao ✅ **COMPLETE (2026-02-10)**
+  - OpenBao v2.5.0 operational
+  - Integrated Storage (Raft)
+  - JWT auth for SPIRE integration
+  - Credentials in 1Password
+- [ ] Deploy SPIRE Agents (with join_token) **← NEXT**
 - [ ] Register initial workloads
 
 **Deliverables:**
