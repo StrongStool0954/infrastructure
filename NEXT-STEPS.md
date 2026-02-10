@@ -144,7 +144,11 @@ Phase 1 (NOW):        Phase 2 (LATER):
   - SPIRE Agent v1.14.1 on ca.funlab.casa
   - Both agents attested to SPIRE Server
   - Health checks passing
-- [ ] Register initial workloads **← NEXT**
+- [x] Register initial workloads ✅ **COMPLETE (2026-02-10)**
+  - Registered step-ca workload on ca.funlab.casa
+  - Registered test workload on auth.funlab.casa
+  - Verified SVID issuance (3.7ms and 6.5ms)
+  - Workload API fully functional
 
 **Deliverables:**
 - Working SPIRE infrastructure (join_token)
@@ -271,7 +275,7 @@ ca.funlab.casa (10.10.2.60)
 
 ---
 
-**Current Status:** ✅ Sprint 1 ~95% complete (all services deployed!)
-**Next Action:** Register initial workloads with SPIRE
-**Timeline:** 1-2 hours to complete Sprint 1
-**Risk:** Low - foundation is solid, ready for workload registration
+**Current Status:** 🎉 Sprint 1 **100% COMPLETE!** 🎉
+**Next Action:** Begin Sprint 2 - Integration & DevID Provisioning
+**Timeline:** Ready to start Sprint 2
+**Risk:** Low - solid foundation established
