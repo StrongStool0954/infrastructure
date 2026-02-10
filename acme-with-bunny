@@ -1,0 +1,17 @@
+#!/bin/bash
+# Wrapper script to run acme.sh with Bunny DNS API key from 1Password
+# Usage: acme-with-bunny --issue -d example.funlab.casa --dns dns_bunny
+
+set -euo pipefail
+
+# Retrieve Bunny API key from 1Password
+BUNNY_API_KEY=$(sudo -u step bash -c '
+export HOME=/var/lib/step-ca/tmp
+/usr/local/bin/op-with-service-account item get "Bunny DNS API Key" --vault "Funlab.Casa.Ca" --fields credential --reveal
+')
+
+# Export for acme.sh
+export BUNNY_API_KEY
+
+# Run acme.sh with provided arguments
+/root/.acme.sh/acme.sh --server https://ca.funlab.casa/acme/acme/directory "$@"

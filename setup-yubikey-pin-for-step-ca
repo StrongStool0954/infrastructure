@@ -1,0 +1,23 @@
+#!/bin/bash
+# Set up YubiKey PIN in a secure temporary file for step-ca
+# This script runs as root before step-ca starts, then drops privileges
+
+set -euo pipefail
+
+PIN_FILE="/run/step-ca/yubikey-pin"
+
+# Create secure directory as root
+mkdir -p /run/step-ca
+chmod 755 /run/step-ca
+
+# Retrieve PIN from 1Password as step user and write to secure file
+sudo -u step bash -c '
+export HOME=/var/lib/step-ca/tmp
+/usr/local/bin/op-with-service-account document get "YubiKey NEO - ca.funlab.casa (SN: 5497305)"     --vault "Funlab.Casa.Ca" | grep "^PIN:" | cut -d: -f2 | tr -d " \n"
+' > "$PIN_FILE"
+
+# Secure the PIN file
+chmod 400 "$PIN_FILE"
+chown step:step "$PIN_FILE"
+
+echo "✅ YubiKey PIN retrieved from 1Password and secured at $PIN_FILE"

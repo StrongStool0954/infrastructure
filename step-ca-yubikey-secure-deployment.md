@@ -66,13 +66,17 @@ chown step:step "$PIN_FILE"
 
 ```json
 {
-  "key": "pkcs11:id=%02;object=Private%20key%20for%20Digital%20Signature",
+  "key": "pkcs11:id=%03;object=Private%20key%20for%20Key%20Management",
   "kms": {
     "type": "pkcs11",
     "uri": "pkcs11:module-path=/usr/lib/x86_64-linux-gnu/libykcs11.so;token=YubiKey%20PIV%20%235497305;pin-source=file:///run/step-ca/yubikey-pin"
   }
 }
 ```
+
+**Key Points:**
+- Uses `id=%03` (slot 9d), NOT `id=%02` (slot 9c)
+- Object label matches slot purpose: "Key Management"
 
 **Key Points:**
 - Uses `pin-source=file://` instead of `pin-value=`
@@ -102,18 +106,21 @@ ExecStopPost=/bin/rm -f /run/step-ca/yubikey-pin
 ### Hardware Details
 - **Model:** YubiKey NEO (Serial: 5497305)
 - **Firmware:** 3.4.9
-- **Slot:** 9c (Digital Signature)
+- **Slot:** 9d (Key Management) - **IMPORTANT: Must use 9d, not 9c**
 - **Algorithm:** RSA 2048
 - **Certificate:** CN=Sword of Omens (valid until 2036-02-08)
+- **Why 9d:** Slot 9c requires PIN for every signing operation (causes CKR_USER_NOT_LOGGED_IN errors with ACME). Slot 9d works correctly with PKCS11 pin-source.
 
 ### PKCS11 Access
 ```
 Module: /usr/lib/x86_64-linux-gnu/libykcs11.so
 Token: YubiKey PIV #5497305
-Object ID: 02
-Label: Private key for Digital Signature
-Attributes: always authenticate, sensitive, never extractable
+Object ID: 03 (slot 9d)
+Label: Private key for Key Management
+Attributes: sensitive, never extractable
 ```
+
+**Note:** Previous deployments used slot 9c (Object ID: 02), but this caused `CKR_USER_NOT_LOGGED_IN` errors during ACME certificate signing due to per-operation PIN requirements.
 
 ### Credentials (in 1Password)
 - **PIN:** Retrieved dynamically (never stored locally)
@@ -330,13 +337,79 @@ ls -la /var/lib/step-ca/tmp/.config/op
 
 ---
 
+## ACME + Bunny.net Integration
+
+### Secure Certificate Issuance
+
+**ACME Endpoint:** `https://ca.funlab.casa/acme/acme/directory`
+
+**DNS Provider:** Bunny.net (API-based DNS-01 challenges)
+
+**Security Model:**
+- ✅ Bunny API key stored ONLY in 1Password
+- ✅ Retrieved dynamically on each certificate request
+- ✅ DNS TXT records automatically cleaned up after validation
+- ✅ No cached credentials in acme.sh config files
+
+### Using acme-with-bunny Wrapper
+
+**Installation:** `/usr/local/bin/acme-with-bunny`
+
+**Usage:**
+```bash
+# Issue certificate for single domain
+sudo acme-with-bunny --issue -d example.funlab.casa --dns dns_bunny
+
+# Issue certificate for multiple domains
+sudo acme-with-bunny --issue -d example.funlab.casa -d www.example.funlab.casa --dns dns_bunny
+
+# Issue wildcard certificate
+sudo acme-with-bunny --issue -d "*.funlab.casa" --dns dns_bunny
+```
+
+**How it works:**
+1. Retrieves `BUNNY_API_KEY` from 1Password (`Funlab.Casa.Ca` vault)
+2. Exports API key to environment (transient, not persisted)
+3. Calls acme.sh with `--server https://ca.funlab.casa/acme/acme/directory`
+4. acme.sh performs DNS-01 challenge:
+   - Creates TXT record: `_acme-challenge.<domain>`
+   - Waits for DNS propagation
+   - step-ca validates the challenge
+   - Deletes TXT record automatically
+5. step-ca signs certificate using YubiKey (slot 9d)
+6. Certificate delivered to acme.sh
+
+**First Successful Certificate:**
+- Domain: `manual-test.funlab.casa`
+- Issued: 2026-02-10 16:19:24 EST
+- Issuer: CN=Sword of Omens (YubiKey-backed)
+- Validation: DNS-01 via Bunny.net
+- Status: ✅ SUCCESS (no CKR_USER_NOT_LOGGED_IN errors)
+
+### DNS-01 Challenge Verification
+
+**Test cleanup:**
+```bash
+dig +short TXT _acme-challenge.manual-test.funlab.casa
+# (empty result confirms cleanup)
+```
+
+**Bunny.net API calls:**
+- `dns_bunny_add()` - Creates TXT record
+- `dns_bunny_rm()` - Deletes TXT record after validation
+
+✅ **Confirmed:** No leaked challenge tokens in DNS
+
+---
+
 ## Files Modified
 
 ```
-/etc/step-ca/config/ca.json                    - Updated to use pin-source
+/etc/step-ca/config/ca.json                    - Updated to use slot 9d, pin-source
 /etc/systemd/system/step-ca.service            - Added ExecStartPre PIN retrieval
 /usr/local/bin/setup-yubikey-pin-for-step-ca   - New: PIN retrieval script
-/usr/local/bin/get-yubikey-pin-from-1password  - New: Helper script
+/usr/local/bin/acme-with-bunny                 - New: Secure acme.sh wrapper (retrieves Bunny API key)
+/usr/local/share/ca-certificates/eye-of-thundera.crt - Root CA (for system trust)
 ```
 
 ---
