@@ -139,8 +139,12 @@ Phase 1 (NOW):        Phase 2 (LATER):
   - Integrated Storage (Raft)
   - JWT auth for SPIRE integration
   - Credentials in 1Password
-- [ ] Deploy SPIRE Agents (with join_token) **← NEXT**
-- [ ] Register initial workloads
+- [x] Deploy SPIRE Agents (with join_token) ✅ **COMPLETE (2026-02-10)**
+  - SPIRE Agent v1.14.1 on auth.funlab.casa
+  - SPIRE Agent v1.14.1 on ca.funlab.casa
+  - Both agents attested to SPIRE Server
+  - Health checks passing
+- [ ] Register initial workloads **← NEXT**
 
 **Deliverables:**
 - Working SPIRE infrastructure (join_token)
@@ -211,27 +215,27 @@ Phase 1 (NOW):        Phase 2 (LATER):
 spire.funlab.casa (10.10.2.62)
 ├── ✅ TPM 2.0 validated
 ├── ✅ LUKS auto-unlock working
-├── ✅ SPIRE Server running (join_token)
-└── ⏳ OpenBao (pending)
+├── ✅ SPIRE Server running (v1.14.1)
+└── ✅ OpenBao running (v2.5.0)
 
 auth.funlab.casa (10.10.2.70)
 ├── ✅ TPM 2.0 validated
 ├── ✅ LUKS auto-unlock working
-└── ⏳ SPIRE Agent (pending)
+└── ✅ SPIRE Agent running (v1.14.1)
 
 ca.funlab.casa (10.10.2.60)
 ├── ✅ TPM 2.0 validated
 ├── ✅ LUKS auto-unlock working
-├── ⏳ step-ca (pending)
-└── ⏳ SPIRE Agent (pending)
+├── ✅ step-ca running (with YubiKey)
+└── ✅ SPIRE Agent running (v1.14.1)
 ```
 
 ### Security Layers
 ```
 ✅ Layer 1: TPM Hardware (validated)
 ✅ Layer 2: Disk Encryption (operational)
-⏳ Layer 3: Node Identity (join_token temporary)
-⏳ Layer 4: Workload Identity (pending)
+✅ Layer 3: Node Identity (join_token operational, will upgrade to TPM DevID in Sprint 3)
+⏳ Layer 4: Workload Identity (ready, needs workload registration)
 ⏳ Layer 5: Service mTLS (pending)
 ```
 
@@ -267,7 +271,7 @@ ca.funlab.casa (10.10.2.60)
 
 ---
 
-**Current Status:** ✅ Sprint 1 ~80% complete
-**Next Action:** Deploy step-ca on ca.funlab.casa
-**Timeline:** 2-3 hours to get step-ca operational
-**Risk:** Low - established technology, clear documentation
+**Current Status:** ✅ Sprint 1 ~95% complete (all services deployed!)
+**Next Action:** Register initial workloads with SPIRE
+**Timeline:** 1-2 hours to complete Sprint 1
+**Risk:** Low - foundation is solid, ready for workload registration
