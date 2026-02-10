@@ -1,8 +1,9 @@
 # Tower of Omens - Next Steps (Hybrid TPM Approach)
 
 **Date:** 2026-02-10
-**Current Sprint:** Sprint 1 - Foundation & Service Deployment
+**Current Sprint:** Sprint 2 - Integration & DevID Provisioning
 **Strategy:** Hybrid Approach - EK now, DevID later
+**Sprint 1:** ✅ COMPLETE | **Sprint 2:** 🚀 IN PROGRESS (Phase 1 Complete)
 
 ---
 
@@ -157,18 +158,41 @@ Phase 1 (NOW):        Phase 2 (LATER):
 - Services using SPIRE SVIDs
 - **Ready for DevID provisioning**
 
-### Sprint 2: DevID Provisioning (Week 2)
-- [ ] Create DevID provisioning workflow
-- [ ] Generate DevID keys in TPMs
+### Sprint 2: Integration & DevID Provisioning (Week 2) 🚀 IN PROGRESS
+
+**Phase 1: OpenBao Workload Identity** ✅ **COMPLETE (2026-02-10)**
+- [x] Deploy SPIRE Agent on spire.funlab.casa
+  - Agent v1.14.1 deployed and attested
+  - Health checks passing
+- [x] Register OpenBao as a workload
+  - SPIFFE ID: spiffe://funlab.casa/workload/openbao
+  - Selector: unix:uid:999
+- [x] Verify SVID issuance
+  - OpenBao retrieves SVID in 2.76ms ✅
+  - All 3 hosts now have SPIRE Agents
+
+**Phase 2: JWT Authentication Integration** ⏳ **NEXT**
+- [ ] Configure SPIRE Server JWT-SVID issuer (OIDC discovery)
+- [ ] Update OpenBao JWT auth configuration
+- [ ] Test end-to-end JWT authentication (workload → OpenBao)
+- [ ] Verify secrets retrieval without static credentials
+
+**Phase 3: TPM DevID Provisioning**
+- [ ] Configure step-ca for DevID issuance
+- [ ] Generate DevID keys in TPMs (all 3 hosts)
 - [ ] Issue DevID certificates via step-ca
-- [ ] Test tpm_devid plugin on one agent
-- [ ] Document DevID lifecycle
+- [ ] Validate DevID certificates
+
+**Phase 4: Documentation & Testing**
+- [ ] Create integration documentation
+- [ ] Integration testing
+- [ ] Prepare for Sprint 3 (TPM migration)
 
 **Deliverables:**
+- JWT authentication operational (workload → OpenBao)
 - All hosts have DevID certificates
 - DevID attestation tested and working
-- Provisioning workflow documented
-- **Ready for migration**
+- **Ready for TPM migration**
 
 ### Sprint 3: TPM Migration (Week 3)
 - [ ] Update SPIRE Server with tpm_devid plugin
@@ -275,7 +299,7 @@ ca.funlab.casa (10.10.2.60)
 
 ---
 
-**Current Status:** 🎉 Sprint 1 **100% COMPLETE!** 🎉
-**Next Action:** Begin Sprint 2 - Integration & DevID Provisioning
-**Timeline:** Ready to start Sprint 2
-**Risk:** Low - solid foundation established
+**Current Status:** 🚀 Sprint 2 Phase 1 **COMPLETE!** (25% of Sprint 2)
+**Next Action:** Configure SPIRE Server JWT-SVID issuer (Phase 2)
+**Timeline:** 2-3 hours for JWT authentication integration
+**Risk:** Medium - new SPIRE features, well-documented
