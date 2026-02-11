@@ -1,9 +1,8 @@
-# Tower of Omens - Next Steps (Hybrid TPM Approach)
+# Tower of Omens - Next Steps
 
 **Date:** 2026-02-10
-**Current Sprint:** Sprint 2 - Integration & DevID Provisioning
-**Strategy:** Hybrid Approach - EK now, DevID later
-**Sprint 1:** ✅ COMPLETE | **Sprint 2:** 🚀 IN PROGRESS (Phase 1 Complete)
+**Current Sprint:** Sprint 3 - TPM Migration & PKI Integration
+**Sprint 1:** ✅ COMPLETE | **Sprint 2:** ✅ COMPLETE | **Sprint 3:** 🚀 IN PROGRESS (Keylime + PKI)
 
 ---
 
@@ -223,18 +222,44 @@ Phase 1 (NOW):        Phase 2 (LATER):
 - ✅ Operational procedures automated
 - ✅ **Ready for TPM migration**
 
-### Sprint 3: TPM Migration (Week 3)
-- [ ] Update SPIRE Server with tpm_devid plugin
-- [ ] Migrate agents to DevID attestation (rolling)
-- [ ] Verify all workloads still functioning
+### Sprint 3: TPM Migration & PKI Integration (Week 3) 🚀 IN PROGRESS
+
+**Phase 1: Keylime Attestation** ✅ **COMPLETE**
+- [x] Deploy Keylime infrastructure (registrar, verifier)
+- [x] Migrate auth host to Keylime attestation
+- [x] Verify continuous attestation (479+ successful quotes)
+- [x] SPIRE Keylime plugin integrated and operational
+
+**Phase 2: Book of Omens PKI** ✅ **COMPLETE (2026-02-10)**
+- [x] Create Book of Omens intermediate CA in OpenBao
+- [x] Sign with Eye of Thundera root CA
+- [x] Configure PKI roles for infrastructure
+  - tower-infrastructure (7-day TTL)
+  - keylime-services (24-hour TTL)
+  - spire-agents (7-day TTL)
+  - openbao-server (30-day TTL)
+- [x] Test certificate issuance
+- [x] Document complete PKI setup
+
+**Phase 3: Certificate Deployment** ⏳ NEXT
+- [ ] Deploy Keylime mTLS with Book of Omens certs
+- [ ] Implement auto-renewal for infrastructure hosts
+- [ ] Migrate SPIRE bundle endpoint to PKI certs
+- [ ] Set up certificate expiration monitoring
+
+**Phase 4: Complete Migration** ⏳ PLANNED
+- [ ] Migrate ca and spire hosts to Keylime
 - [ ] Remove join_token plugin
-- [ ] Update onboarding docs
+- [ ] Update onboarding documentation
 
 **Deliverables:**
-- All agents using TPM DevID attestation
-- join_token removed
-- Hardware-backed trust operational
-- **Production-ready TPM attestation**
+- ✅ Keylime TPM attestation operational (1/3 hosts)
+- ✅ Book of Omens PKI infrastructure deployed
+- ✅ Short-lived certificate issuance ready
+- ⏳ All hosts using Keylime attestation
+- ⏳ Keylime mTLS enabled with PKI certs
+- ⏳ Automated certificate renewal
+- **Production-ready TPM attestation + PKI**
 
 ### Sprint 4: Hardening (Week 4)
 - [ ] Implement DevID rotation automation
@@ -270,30 +295,44 @@ Phase 1 (NOW):        Phase 2 (LATER):
 ### Infrastructure Status
 ```
 spire.funlab.casa (10.10.2.62)
-├── ✅ TPM 2.0 validated
+├── ✅ TPM 2.0 validated (Infineon)
 ├── ✅ LUKS auto-unlock working
 ├── ✅ SPIRE Server running (v1.14.1)
-└── ✅ OpenBao running (v2.5.0)
+│   ├── Keylime plugin: ENABLED ✅
+│   ├── tpm_devid plugin: PREPARED
+│   └── join_token plugin: ACTIVE (legacy)
+├── ✅ OpenBao running (v2.5.0)
+│   ├── PKI engine: pki_int/ ✅
+│   ├── Book of Omens CA: OPERATIONAL ✅
+│   └── 4 PKI roles configured ✅
+├── ✅ Keylime Registrar (port 8891)
+└── ✅ Keylime Verifier (port 8881)
 
 auth.funlab.casa (10.10.2.70)
-├── ✅ TPM 2.0 validated
+├── ✅ TPM 2.0 validated (Infineon)
 ├── ✅ LUKS auto-unlock working
-└── ✅ SPIRE Agent running (v1.14.1)
+├── ✅ SPIRE Agent running (v1.14.1)
+│   └── Attestation: Keylime ✅ (continuous)
+└── ✅ Keylime Agent (port 9002)
 
 ca.funlab.casa (10.10.2.60)
-├── ✅ TPM 2.0 validated
+├── ✅ TPM 2.0 validated (Infineon)
 ├── ✅ LUKS auto-unlock working
 ├── ✅ step-ca running (with YubiKey)
+│   └── Sword of Omens CA ✅
 └── ✅ SPIRE Agent running (v1.14.1)
+    └── Attestation: join_token (pending migration)
 ```
 
 ### Security Layers
 ```
-✅ Layer 1: TPM Hardware (validated)
-✅ Layer 2: Disk Encryption (operational)
-✅ Layer 3: Node Identity (join_token operational, will upgrade to TPM DevID in Sprint 3)
-⏳ Layer 4: Workload Identity (ready, needs workload registration)
-⏳ Layer 5: Service mTLS (pending)
+✅ Layer 1: TPM Hardware (Infineon TPM 2.0)
+✅ Layer 2: Disk Encryption (LUKS with TPM auto-unlock)
+✅ Layer 3: Node Identity (Keylime continuous attestation - 1/3 hosts)
+✅ Layer 4: Workload Identity (SPIRE SVIDs operational)
+✅ Layer 5: Service mTLS (JWT-SVID auth working)
+✅ Layer 6: PKI Infrastructure (Book of Omens CA deployed)
+⏳ Layer 7: Certificate Automation (ready to deploy)
 ```
 
 ---
@@ -328,7 +367,13 @@ ca.funlab.casa (10.10.2.60)
 
 ---
 
-**Current Status:** 🎉 Sprint 2 **100% COMPLETE!** (All 4 Phases)
-**Next Action:** Sprint 3 - TPM Attestation Migration
-**Timeline:** 1 day (8-10 hours) for complete migration
-**Risk:** Medium - TPM attestation migration with rollback plan
+**Current Status:** 🚀 Sprint 3 **IN PROGRESS** (Phase 1 & 2 Complete)
+**Recent Achievements:**
+- ✅ Keylime TPM attestation (auth host migrated)
+- ✅ Book of Omens PKI deployed in OpenBao
+- ✅ 4 PKI roles configured for infrastructure
+- ✅ Certificate issuance tested and verified
+
+**Next Action:** Deploy Keylime mTLS with PKI certificates
+**Timeline:** 2-3 days for certificate deployment + migration
+**Risk:** Low - Keylime proven, PKI tested, rollback available
