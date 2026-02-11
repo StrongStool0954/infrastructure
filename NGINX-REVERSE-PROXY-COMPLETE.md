@@ -186,16 +186,25 @@ bao write -format=json pki_int/issue/openbao-server \
 
 ## Notes
 
-### Keylime Verifier Service
-The Keylime verifier is now running and accessible via nginx reverse proxy. It was started manually and needs a systemd service unit for automatic startup on boot.
+### Keylime Services
+Both Keylime verifier and registrar are now running as systemd services and accessible via nginx reverse proxy. Services automatically start on boot and restart on failure.
 
-**To start verifier manually:**
+**Systemd service units created:**
+- `/etc/systemd/system/keylime_verifier.service` ✅
+- `/etc/systemd/system/keylime_registrar.service` ✅
+
+**Service management:**
 ```bash
-sudo /usr/local/bin/keylime_verifier &
+# Check status
+sudo systemctl status keylime_verifier
+sudo systemctl status keylime_registrar
+
+# View logs
+sudo journalctl -u keylime_verifier -f
+sudo journalctl -u keylime_registrar -f
 ```
 
-**To create systemd service (TODO):**
-Create `/etc/systemd/system/keylime_verifier.service`
+See `KEYLIME-SYSTEMD-SERVICES.md` for complete service documentation.
 
 ### Certificate Renewal
 
@@ -319,7 +328,7 @@ Internet/Network
 1. ✅ Update OpenBao configuration to advertise new URL
 2. ✅ Start Keylime verifier service
 3. ✅ Add nginx proxy for Keylime services with separate subdomains
-4. ⏸️ Create systemd service unit for Keylime verifier
+4. ✅ Create systemd service units for Keylime verifier and registrar
 5. ⏸️ Set up automated certificate renewal
 6. ⏸️ Add monitoring for nginx service
 7. ⏸️ Update Keylime agents to use new URLs (optional)
