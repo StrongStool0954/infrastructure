@@ -331,9 +331,10 @@ Internet/Network
 4. ✅ Create systemd service units for Keylime verifier and registrar
 5. ✅ Set up automated certificate renewal (weekly, Sundays at 3 AM)
 6. ✅ Add monitoring for nginx service (every 5 minutes with auto-recovery)
-7. ⏸️ Update Keylime agents to use new URLs (optional)
+7. ❌ Update Keylime agents to use new URLs - **Evaluated, Not Recommended**
 
-See `NGINX-AUTOMATION.md` for complete automation documentation.
+See `NGINX-AUTOMATION.md` for automation documentation.
+See `TASK-7-ANALYSIS.md` for why agent URL update is not recommended.
 
 ---
 
