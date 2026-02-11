@@ -14,6 +14,7 @@
 - ✅ Nginx automation and monitoring
 - ✅ OpenBao auto-unseal with TPM + Keylime attestation
 - ✅ Network redesign with Pica8 (Phase 1 - LACP bonds)
+- ✅ Network Phase 2: 10G uplink to Firewalla
 
 ### In Progress 🔄
 - 🔄 1Password service account troubleshooting (OpenBao vault access)
@@ -216,7 +217,7 @@
 
 ## Network Infrastructure
 
-**Current Status:** ✅ Phase 1 (LACP bonds) complete
+**Current Status:** ✅ Phase 1 & 2 complete (LACP bonds + 10G uplink)
 
 ### Phase 1: LACP Bond Configuration ✅ COMPLETE
 **Timeline:** Completed
@@ -224,19 +225,17 @@
 - ✅ Test failover scenarios
 - ✅ Validate performance
 
-### Phase 2: 10G Uplink
-**Timeline:** Q1 2026
-**Status:** ⏳ Waiting on Hardware
+### Phase 2: 10G Uplink ✅ COMPLETE
+**Timeline:** Completed 2026-02-11
+**Status:** ✅ Complete
 
-**Pending:**
-- Waiting on 10GBASE-T SFP+ module
-- Firewalla 10G uplink connection
+**Completed:**
+- ✅ Installed 10GBASE-T SFP+ module
+- ✅ Configured Firewalla uplink
+- ✅ Tested bandwidth and routing
+- ✅ Validated failover
 
-**Tasks:**
-- 🔲 Install 10GBASE-T SFP+ module
-- 🔲 Configure Firewalla uplink
-- 🔲 Test bandwidth and routing
-- 🔲 Validate failover
+**Result:** 10G uplink operational
 
 ### Phase 3: Management Network
 **Timeline:** Q2 2026
@@ -412,7 +411,6 @@ Current:
 1. **Observability (Phase 3)** - Prometheus, Grafana, alerting
 2. **Deploy Auto-Unseal to Other Hosts** - ca.funlab.casa, auth.funlab.casa
 3. **IMA Integration** - Runtime integrity monitoring
-4. **Network Phase 2** - 10G uplink (pending hardware)
 
 ### Medium Priority (Next Quarter) 🟢
 1. **Performance Optimization (Phase 2)** - Parallel TPM decryption
@@ -435,11 +433,6 @@ Current:
    - Impact: Cannot automate key retrieval from 1Password
    - Workaround: Manual retrieval from 1Password UI
    - Resolution: Recreate service account
-
-2. **10GBASE-T SFP+ Module** - Network Phase 2 blocked
-   - Impact: Cannot complete Firewalla 10G uplink
-   - Workaround: Current network adequate for now
-   - Resolution: Hardware procurement
 
 ### Dependencies 📊
 
@@ -495,6 +488,7 @@ Current:
 
 ### February 2026 (Current)
 - ✅ OpenBao auto-unseal implementation complete
+- ✅ Network Phase 2: 10G uplink to Firewalla complete
 - 🔄 Monitor 24h certificate renewals
 - 🔲 Recreate 1Password service account
 - 🔲 Write emergency runbooks
@@ -505,7 +499,6 @@ Current:
 - Deploy auto-unseal to auth.funlab.casa
 - Implement Prometheus + Grafana
 - Test attestation failure scenarios
-- Network Phase 2 (if hardware arrives)
 
 ### April-June 2026 (Q2)
 - Performance optimizations (parallel TPM decryption)
@@ -553,8 +546,8 @@ Current:
 
 ### Hardware Requirements
 
-**Immediate:**
-- 10GBASE-T SFP+ module (Network Phase 2) - ~$100-200
+**Completed:**
+- ✅ 10GBASE-T SFP+ module (Network Phase 2) - Acquired and installed
 
 **Q2 2026:**
 - YubiKeys for admin access - ~$100-150
