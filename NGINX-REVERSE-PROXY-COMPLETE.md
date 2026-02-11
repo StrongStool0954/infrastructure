@@ -329,9 +329,11 @@ Internet/Network
 2. ✅ Start Keylime verifier service
 3. ✅ Add nginx proxy for Keylime services with separate subdomains
 4. ✅ Create systemd service units for Keylime verifier and registrar
-5. ⏸️ Set up automated certificate renewal
-6. ⏸️ Add monitoring for nginx service
+5. ✅ Set up automated certificate renewal (weekly, Sundays at 3 AM)
+6. ✅ Add monitoring for nginx service (every 5 minutes with auto-recovery)
 7. ⏸️ Update Keylime agents to use new URLs (optional)
+
+See `NGINX-AUTOMATION.md` for complete automation documentation.
 
 ---
 
