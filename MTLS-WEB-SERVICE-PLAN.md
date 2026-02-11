@@ -1,26 +1,42 @@
-# Secure Web Service with mTLS + Bunny CDN - Project Plan
+# Secure Web Service with mTLS + Authentik - Validation Test Plan
 
 **Date:** 2026-02-11
-**Status:** 🔲 Planning Phase
-**Goal:** Deploy secure web service accessible only via client certificates on mobile devices
+**Status:** 🔲 Planning Phase - Validation Service
+**Goal:** Deploy "Hello World" test service to validate Authentik authentication workflow before production migrations
 
 ---
 
 ## Project Overview
 
 ### Objective
-Create a secure web service infrastructure where:
-- Content is proxied through Bunny.net CDN
-- Only authenticated clients with valid mTLS certificates can access
-- Firewalla provides network-level security
-- Client certificate installed on phone provides seamless authentication
-- Nginx Proxy Manager handles reverse proxy and SSL/TLS termination
 
-### Use Cases
-- Secure personal web services (dashboards, tools, documents)
-- Private APIs accessible only from trusted devices
-- Family/team services with device-based authentication
-- Zero-trust web access model
+**This is a VALIDATION SERVICE** - a "Hello World" test deployment to prove the authentication stack works before migrating production services (Plex, Home Assistant, MusicBrainz).
+
+Create a simple test web service that validates:
+- ✅ **auth.funlab.casa (Authentik)** - OAuth/OIDC provider operational
+- ✅ **Passkey Authentication** - WebAuthn/FIDO2 login working
+- ✅ **Device Enrollment** - Client certificate issuance via Authentik
+- ✅ **mTLS Validation** - NPM validates client certificates correctly
+- ✅ **Dual Authentication** - Both OAuth and mTLS paths functional
+- ✅ **Tower of Omens Integration** - step-ca, OpenBao, SPIRE working together
+- ✅ **End-to-End Flow** - Complete zero-trust authentication validated
+
+**Success = Production services can be migrated with confidence**
+
+### Primary Use Case
+
+**Validation Testing for Zero Trust Architecture:**
+- Test authentication flows before production cutover
+- Validate certificate lifecycle (issuance, renewal, revocation)
+- Prove NPM dual-auth configuration works
+- Verify Bunny CDN integration with JWT validation
+- Test user experience for device enrollment
+- Validate monitoring and logging
+
+### Secondary Use Cases (Future)
+- Personal dashboards accessible from enrolled devices
+- Internal tools protected by zero-trust authentication
+- Template for future service migrations
 
 ---
 
@@ -77,30 +93,160 @@ Create a secure web service infrastructure where:
             └──────────────────────────────┘
 ```
 
+### Enhanced Architecture with Authentik
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     USER ACCESS                             │
+└────────────────┬────────────────────────────────────────────┘
+                 │
+        ┌────────┴────────┐
+        │                 │
+        ▼                 ▼
+┌──────────────┐   ┌──────────────┐
+│ PATH 1:      │   │ PATH 2:      │
+│ Enrolled     │   │ New Device   │
+│ Device       │   │ (No cert)    │
+│ (Has cert)   │   │              │
+└──────┬───────┘   └──────┬───────┘
+       │                  │
+       │                  ▼
+       │         ┌─────────────────────┐
+       │         │ auth.funlab.casa    │
+       │         │ (Authentik)         │
+       │         │ - Passkey login     │
+       │         │ - Issue OAuth token │
+       │         │ - Device enrollment │
+       │         └──────────┬──────────┘
+       │                    │
+       └────────┬───────────┘
+                ▼
+      ┌──────────────────────┐
+      │   Bunny.net CDN      │
+      │ - Validate JWT OR    │
+      │ - Pass client cert   │
+      │ - DDoS protection    │
+      └─────────┬────────────┘
+                ▼
+      ┌──────────────────────┐
+      │    Firewalla         │
+      │ - IP allowlist       │
+      │ - Keylime check      │
+      └─────────┬────────────┘
+                ▼
+      ┌──────────────────────┐
+      │  NPM (nginx)         │
+      │ Priority 1: mTLS     │
+      │ Priority 2: OAuth    │
+      │ Priority 3: Redirect │
+      └─────────┬────────────┘
+                ▼
+      ┌──────────────────────┐
+      │ Test Web Server      │
+      │ - Hello World        │
+      │ - Shows auth info    │
+      │ - SPIRE identity     │
+      └──────────────────────┘
+```
+
 ### Security Layers
 
-1. **CDN Layer (Bunny.net)**
-   - DDoS protection
-   - Geographic distribution
-   - SSL/TLS termination (optional)
-   - Client certificate validation (if supported)
+1. **Authentication Layer (auth.funlab.casa - Authentik)**
+   - Passkey authentication (WebAuthn/FIDO2)
+   - Device enrollment and certificate issuance
+   - OAuth 2.0 / OIDC token management
+   - Integration with step-ca for client certificates
+   - User/group management
 
-2. **Firewall Layer (Firewalla)**
+2. **CDN Layer (Bunny.net)**
+   - DDoS protection and WAF
+   - JWT validation via Edge Scripting
+   - Geographic distribution
+   - SSL/TLS termination
+   - Client certificate passthrough (if supported)
+
+3. **Firewall Layer (Firewalla)**
    - IP allowlist (Bunny.net edge IPs only)
+   - Keylime attestation check (optional)
    - Rate limiting
    - Geo-blocking
    - IDS/IPS monitoring
 
-3. **Proxy Layer (Nginx Proxy Manager)**
-   - mTLS certificate validation
-   - Client certificate verification
-   - Header injection (cert info to backend)
-   - Access logging
+4. **Proxy Layer (Nginx Proxy Manager)**
+   - **Dual authentication:**
+     - Priority 1: Validate client certificate (mTLS)
+     - Priority 2: Validate OAuth JWT token
+     - Priority 3: Redirect to auth.funlab.casa
+   - Header injection (cert/user info to backend)
+   - Access logging and audit trail
 
-4. **Application Layer (Test Web Server)**
-   - Trusts proxy headers
-   - No additional authentication needed
-   - Simple content serving
+5. **Application Layer (Test Web Server)**
+   - Displays authentication information
+   - Shows client certificate details
+   - Shows OAuth user information
+   - Validates authentication flow working
+   - Simple "Hello World" + auth metadata
+
+---
+
+## Prerequisites and Dependencies
+
+### **Integration with Zero Trust Architecture**
+
+This validation service is part of the larger [Zero Trust Architecture Master Plan](zero-trust-architecture-master-plan.md). It serves as the test bed for authentication components before production service migrations.
+
+**Dependencies:**
+- ✅ **Zero Trust Phase 1:** NPM deployed and operational
+- 🔄 **Zero Trust Phase 2:** Tower of Omens infrastructure
+  - step-ca with TPM (certificate authority)
+  - OpenBao with TPM (secret management)
+  - SPIRE with TPM (workload identity)
+- 🔄 **Zero Trust Phase 3:** auth.funlab.casa (Authentik) deployed
+  - Passkey authentication configured
+  - OAuth/OIDC provider operational
+  - PostgreSQL database and Redis cache
+- 🔲 **Zero Trust Phase 4:** Client certificate enrollment flow
+  - Authentik ↔ step-ca integration
+  - Device enrollment UI
+  - Certificate lifecycle management
+
+**Status:** Can begin basic setup in parallel with Zero Trust Phase 2-3, full deployment after Phase 3 complete.
+
+### **What This Service Validates**
+
+Before migrating production services (Plex, Home Assistant, MusicBrainz), this test service proves:
+
+1. **Authentik Integration ✅**
+   - Passkey login works (Face ID/Touch ID)
+   - OAuth tokens issued correctly
+   - Session management functional
+   - Works both LAN and WAN
+
+2. **Certificate Enrollment ✅**
+   - Users can enroll devices via Authentik
+   - step-ca issues client certificates
+   - Certificates delivered as PKCS#12
+   - Installation on mobile devices works
+
+3. **NPM Dual Authentication ✅**
+   - mTLS validation works (enrolled devices)
+   - OAuth validation works (non-enrolled devices)
+   - Priority fallback correct
+   - Both paths reach backend
+
+4. **Tower of Omens Integration ✅**
+   - SPIRE workload identity for NPM
+   - SPIRE workload identity for test service
+   - OpenBao provides secrets to services
+   - step-ca integrated with Authentik
+
+5. **End-to-End Flow ✅**
+   - Device enrollment → certificate → seamless access
+   - New device → passkey → OAuth token → access
+   - Certificate revocation works
+   - Monitoring and logging complete
+
+**Success Criteria:** All validation points pass → production services can be migrated with confidence.
 
 ---
 
@@ -209,10 +355,68 @@ Create a secure web service infrastructure where:
 
 ---
 
-## Implementation Phases
+## Implementation Phases (Validation Service)
 
-### Phase 1: Local Setup & Testing (Week 1)
-**Goal:** Get NPM and test server running locally with mTLS
+### **Timeline Context**
+
+This validation service implements in parallel with Zero Trust Architecture phases:
+
+```
+Zero Trust Phase 1 (NPM) ────────────→ COMPLETE
+                                       │
+Zero Trust Phase 2 (Tower) ──────────→ IN PROGRESS
+      └─ step-ca, OpenBao, SPIRE      │
+                                       │
+Zero Trust Phase 3 (Authentik) ──────→ THIS SERVICE BLOCKS ON THIS
+      └─ auth.funlab.casa              │
+                                       ▼
+Validation Service Phase 1-6 ────────→ TEST & VALIDATE
+      └─ Proves auth stack works      │
+                                       ▼
+Zero Trust Phase 5+ ─────────────────→ MIGRATE PRODUCTION
+      └─ Plex, HA, MusicBrainz        (with confidence)
+```
+
+---
+
+### Phase 0: Prerequisites (Before Starting)
+**Duration:** Depends on Zero Trust progress
+**Blocks:** This entire validation service
+
+**Required:**
+- ✅ Zero Trust Phase 1 complete (NPM operational)
+- 🔄 Zero Trust Phase 2 complete (Tower of Omens operational)
+- 🔄 Zero Trust Phase 3 complete (auth.funlab.casa deployed)
+
+**Validation:**
+```bash
+# Verify NPM accessible
+curl -I http://npm.funlab.casa:81
+
+# Verify auth.funlab.casa accessible
+curl -I https://auth.funlab.casa
+
+# Verify step-ca operational
+step ca health
+
+# Verify OpenBao unsealed
+curl -sk https://openbao.funlab.casa:8200/v1/sys/seal-status | jq '.sealed'
+
+# Verify SPIRE server running
+spire-server healthcheck
+```
+
+**Success Criteria:**
+- ✅ All infrastructure components operational
+- ✅ Can login to Authentik with passkey
+- ✅ step-ca can issue certificates
+- ✅ OpenBao can store/retrieve secrets
+
+---
+
+### Phase 1: Basic Web Service + NPM Integration (Week 1)
+**Goal:** Deploy simple test service through NPM (no auth yet)
+**Can Start:** In parallel with Zero Trust Phase 3
 
 **Tasks:**
 - [ ] Deploy Nginx Proxy Manager (LXC or Docker)
@@ -243,8 +447,272 @@ Create a secure web service infrastructure where:
 - ✅ Access denied without cert
 - ✅ Certificate details displayed on web page
 
-### Phase 2: Firewalla Security (Week 2)
-**Goal:** Configure network-level security
+### Phase 2: Authentik OAuth Integration (Week 2)
+**Goal:** Integrate test service with auth.funlab.casa OAuth authentication
+**Requires:** Zero Trust Phase 3 complete (Authentik operational)
+
+**Tasks:**
+- [ ] **Create OAuth Application in Authentik**
+  - [ ] Login to https://auth.funlab.casa
+  - [ ] Navigate to Applications → Create
+  - [ ] Application name: "Test Validation Service"
+  - [ ] Provider: OAuth2/OIDC
+  - [ ] Client Type: Confidential
+  - [ ] Redirect URIs: `https://test.funlab.casa/oauth2/callback`
+  - [ ] Scopes: openid, profile, email
+  - [ ] Save client ID and secret to OpenBao
+
+- [ ] **Deploy oauth2-proxy on NPM Host**
+  ```bash
+  # oauth2-proxy container
+  docker run -d \
+    --name oauth2-proxy \
+    --network npm-network \
+    -e OAUTH2_PROXY_CLIENT_ID=<from-authentik> \
+    -e OAUTH2_PROXY_CLIENT_SECRET=<from-openbao> \
+    -e OAUTH2_PROXY_COOKIE_SECRET=<random-32-bytes> \
+    -e OAUTH2_PROXY_OIDC_ISSUER_URL=https://auth.funlab.casa/application/o/test-service/ \
+    -e OAUTH2_PROXY_REDIRECT_URL=https://test.funlab.casa/oauth2/callback \
+    -e OAUTH2_PROXY_UPSTREAMS=http://test-backend:80 \
+    quay.io/oauth2-proxy/oauth2-proxy:latest
+  ```
+
+- [ ] **Configure NPM for OAuth Validation**
+  - [ ] Add custom nginx config for auth_request
+  - [ ] Point to oauth2-proxy for validation
+  - [ ] Configure redirect on 401/403
+
+- [ ] **Test OAuth Flow**
+  - [ ] Visit https://test.funlab.casa
+  - [ ] Redirected to auth.funlab.casa
+  - [ ] Login with passkey (Face ID/Touch ID)
+  - [ ] Redirected back with JWT token
+  - [ ] Service accessible
+
+- [ ] **Update Test Page to Show Auth Info**
+  ```html
+  <html>
+  <body>
+    <h1>🎉 Authentication Validated!</h1>
+    <h2>User Information:</h2>
+    <ul>
+      <li>User: {{ .User }}</li>
+      <li>Email: {{ .Email }}</li>
+      <li>Groups: {{ .Groups }}</li>
+      <li>Authenticated via: OAuth 2.0 (Passkey)</li>
+    </ul>
+  </body>
+  </html>
+  ```
+
+**Success Criteria:**
+- ✅ Service requires authentication (no bypass)
+- ✅ Unauthenticated users redirected to auth.funlab.casa
+- ✅ Passkey login works (Face ID/Touch ID)
+- ✅ After auth, user redirected back to service
+- ✅ JWT token validated by oauth2-proxy
+- ✅ Test page shows user information from token
+- ✅ Session persists (1-hour JWT TTL)
+- ✅ Logout works and clears session
+
+---
+
+### Phase 3: Authentik Device Enrollment Flow (Week 3)
+**Goal:** Implement client certificate enrollment via Authentik
+**Requires:** Phase 2 complete, Zero Trust Phase 4 ready (step-ca integration)
+
+**Tasks:**
+- [ ] **Configure Authentik → step-ca Integration**
+  - [ ] Create Authentik policy for certificate issuance
+  - [ ] Configure step-ca API endpoint in Authentik
+  - [ ] Set up authentication (Authentik → step-ca via SPIRE SVID)
+  - [ ] Test API connection
+
+- [ ] **Create Device Enrollment Flow in Authentik**
+  - [ ] Navigate to Flows → Create "Device Enrollment"
+  - [ ] Add stages:
+    1. Identification (user must be authenticated)
+    2. Certificate Request (generate CSR)
+    3. step-ca Certificate Issuance (call API)
+    4. Certificate Download (PKCS#12 delivery)
+  - [ ] Set certificate attributes:
+    - CN: `device-name.user.funlab.casa`
+    - O: Funlab.Casa
+    - OU: User Devices
+    - Extended Key Usage: Client Authentication
+    - Validity: 90 days
+
+- [ ] **Add Enrollment Page to Authentik UI**
+  - [ ] User dashboard → "My Devices"
+  - [ ] "Enroll This Device" button
+  - [ ] Shows enrolled devices list
+  - [ ] Can revoke certificates
+
+- [ ] **Test Certificate Issuance**
+  - [ ] Login to auth.funlab.casa
+  - [ ] Navigate to "My Devices"
+  - [ ] Click "Enroll This Device"
+  - [ ] Certificate generated (CSR → step-ca → PKCS#12)
+  - [ ] Download iphone-user.p12
+  - [ ] Verify file contains:
+    - Client certificate
+    - Private key
+    - CA chain (step-ca root + intermediate)
+
+- [ ] **Test Certificate Installation**
+  - [ ] **On iPhone:**
+    - [ ] AirDrop .p12 file to phone
+    - [ ] Settings → General → VPN & Device Management
+    - [ ] Install Profile
+    - [ ] Enter PKCS#12 password
+    - [ ] Trust certificate
+
+  - [ ] **On Android:**
+    - [ ] Transfer .p12 to device
+    - [ ] Settings → Security → Install Certificate
+    - [ ] Select "VPN and app user certificate"
+    - [ ] Navigate to .p12 file
+    - [ ] Enter password
+
+  - [ ] **On macOS:**
+    - [ ] Double-click .p12 file
+    - [ ] Keychain Access opens
+    - [ ] Enter password
+    - [ ] Add to "login" keychain
+
+  - [ ] **On Windows:**
+    - [ ] Double-click .p12 file
+    - [ ] Certificate Import Wizard
+    - [ ] Enter password
+    - [ ] Place in "Personal" store
+
+**Success Criteria:**
+- ✅ Users can enroll devices via Authentik UI
+- ✅ step-ca issues client certificates successfully
+- ✅ Certificates contain correct attributes
+- ✅ PKCS#12 file downloads with password protection
+- ✅ Certificate installs on all device types
+- ✅ Browser can access certificate for selection
+
+---
+
+### Phase 4: NPM Dual Authentication (mTLS + OAuth) (Week 4)
+**Goal:** Configure NPM to accept both client certificates AND OAuth tokens
+**Requires:** Phase 3 complete (certificates issuable)
+
+**Tasks:**
+- [ ] **Configure NPM for mTLS Validation**
+  - [ ] Upload step-ca CA bundle to NPM
+  - [ ] Enable `ssl_verify_client optional`
+  - [ ] Configure CRL (certificate revocation list) checking
+  - [ ] Test certificate validation
+
+- [ ] **Implement Priority-Based Authentication**
+  ```nginx
+  # Custom nginx config for NPM proxy host
+  location / {
+      # Check 1: Client certificate
+      if ($ssl_client_verify = SUCCESS) {
+          set $auth_method "mtls";
+          # Skip OAuth validation
+          proxy_pass http://test-backend;
+      }
+
+      # Check 2: OAuth token (if no client cert)
+      if ($auth_method != "mtls") {
+          auth_request /oauth2/auth;
+          auth_request_set $user $upstream_http_x_auth_request_user;
+          auth_request_set $email $upstream_http_x_auth_request_email;
+      }
+
+      # Check 3: No auth → redirect to Authentik
+      error_page 401 403 = @oauth_redirect;
+
+      # Pass authentication metadata to backend
+      proxy_set_header X-Auth-Method $auth_method;
+      proxy_set_header X-Client-Cert-CN $ssl_client_s_dn_cn;
+      proxy_set_header X-OAuth-User $user;
+      proxy_set_header X-OAuth-Email $email;
+
+      proxy_pass http://test-backend;
+  }
+
+  location @oauth_redirect {
+      return 302 https://auth.funlab.casa/application/o/authorize/?client_id=<client-id>&redirect_uri=https://test.funlab.casa/oauth2/callback;
+  }
+  ```
+
+- [ ] **Update Test Page to Show Auth Method**
+  ```html
+  <html>
+  <body>
+    <h1>🎉 Authentication Validated!</h1>
+
+    <h2>Authentication Method:</h2>
+    <p><strong>{{ if .ClientCert }}mTLS (Client Certificate){{ else }}OAuth 2.0 (Passkey){{ end }}</strong></p>
+
+    {{ if .ClientCert }}
+    <h2>Client Certificate:</h2>
+    <ul>
+      <li>Subject: {{ .ClientCertCN }}</li>
+      <li>Issuer: {{ .ClientCertIssuer }}</li>
+      <li>Valid Until: {{ .ClientCertExpiry }}</li>
+      <li>Serial: {{ .ClientCertSerial }}</li>
+    </ul>
+    {{ else }}
+    <h2>OAuth User:</h2>
+    <ul>
+      <li>User: {{ .OAuthUser }}</li>
+      <li>Email: {{ .OAuthEmail }}</li>
+      <li>Groups: {{ .OAuthGroups }}</li>
+    </ul>
+    {{ end }}
+
+    <hr>
+    <p><a href="/enroll">Enroll This Device</a> | <a href="/logout">Logout</a></p>
+  </body>
+  </html>
+  ```
+
+- [ ] **Test Both Authentication Paths**
+
+  **Test 1: Enrolled Device (mTLS Path)**
+  - [ ] Visit https://test.funlab.casa from enrolled phone
+  - [ ] Browser automatically presents client certificate
+  - [ ] NPM validates certificate
+  - [ ] Service loads immediately (NO login prompt)
+  - [ ] Test page shows "mTLS (Client Certificate)"
+  - [ ] Certificate details displayed
+
+  **Test 2: Non-Enrolled Device (OAuth Path)**
+  - [ ] Visit https://test.funlab.casa from laptop (no cert)
+  - [ ] NPM detects no client certificate
+  - [ ] Redirected to auth.funlab.casa
+  - [ ] Login with passkey
+  - [ ] Redirected back to service
+  - [ ] Test page shows "OAuth 2.0 (Passkey)"
+  - [ ] User information displayed
+
+  **Test 3: Certificate Revocation**
+  - [ ] Revoke certificate in Authentik
+  - [ ] Update CRL on NPM
+  - [ ] Visit https://test.funlab.casa from enrolled device
+  - [ ] Certificate validation fails
+  - [ ] Falls back to OAuth path
+  - [ ] User must login with passkey
+
+**Success Criteria:**
+- ✅ Enrolled devices: Zero-click access (mTLS)
+- ✅ Non-enrolled devices: Passkey login (OAuth)
+- ✅ Priority fallback works correctly
+- ✅ Both paths display different auth info
+- ✅ Certificate revocation enforced
+- ✅ CRL checking operational
+- ✅ Audit logs capture both auth types
+
+---
+
+### Phase 5: Firewalla + Keylime Security (Week 5)
 
 **Tasks:**
 - [ ] Document current Firewalla rules
