@@ -1,21 +1,21 @@
 # Nginx Reverse Proxy - Implementation Complete
 
-**Date:** 2026-02-11  
-**Status:** ✅ OPERATIONAL  
+**Date:** 2026-02-11
+**Status:** ✅ OPERATIONAL
 **Purpose:** Service-specific DNS with standard HTTPS ports
 
 ---
 
 ## Summary
 
-Successfully implemented nginx reverse proxy for infrastructure services, eliminating the need to remember port numbers.
+Successfully implemented nginx reverse proxy for all infrastructure services with service-specific subdomains, eliminating the need to remember port numbers.
 
 ---
 
 ## What Was Implemented
 
 ### ✅ OpenBao PKI - WORKING
-**Old URL:** `https://spire.funlab.casa:8200`  
+**Old URL:** `https://spire.funlab.casa:8200`
 **New URL:** `https://openbao.funlab.casa` (port 443)
 
 **Configuration:**
@@ -32,13 +32,50 @@ curl -k https://openbao.funlab.casa/v1/sys/health
 
 ---
 
+### ✅ Keylime Verifier - WORKING
+**Old URL:** `https://spire.funlab.casa:8881`
+**New URL:** `https://verifier.keylime.funlab.casa` (port 443)
+
+**Configuration:**
+- Nginx reverse proxy on port 443
+- Proxies to localhost:8881
+- Certificate issued by Book of Omens PKI
+- SANs: verifier.keylime.funlab.casa, registrar.keylime.funlab.casa, keylime.funlab.casa
+
+**Test:**
+```bash
+curl -k https://verifier.keylime.funlab.casa/version
+# Returns: {"code":200,"status":"Success","results":{"current_version":"2.5"}}
+```
+
+---
+
+### ✅ Keylime Registrar - WORKING
+**Old URL:** `https://spire.funlab.casa:8891`
+**New URL:** `https://registrar.keylime.funlab.casa` (port 443)
+
+**Configuration:**
+- Nginx reverse proxy on port 443
+- Proxies to localhost:8891
+- Certificate issued by Book of Omens PKI
+- SANs: verifier.keylime.funlab.casa, registrar.keylime.funlab.casa, keylime.funlab.casa
+
+**Test:**
+```bash
+curl -k https://registrar.keylime.funlab.casa/version
+# Returns: {"code":200,"status":"Success","results":{"current_version":"2.5"}}
+```
+
+---
+
 ## Service URLs
 
 | Service | New URL | Old URL | Status |
 |---------|---------|---------|--------|
 | OpenBao PKI | https://openbao.funlab.casa | https://spire.funlab.casa:8200 | ✅ Working |
+| Keylime Verifier | https://verifier.keylime.funlab.casa | https://spire.funlab.casa:8881 | ✅ Working |
+| Keylime Registrar | https://registrar.keylime.funlab.casa | https://spire.funlab.casa:8891 | ✅ Working |
 | SPIRE Server | https://spire.funlab.casa | spire.funlab.casa:8081 (gRPC) | ℹ️  Info page |
-| Keylime Verifier | N/A | N/A | ⚠️ Not running |
 
 ---
 
@@ -46,7 +83,7 @@ curl -k https://openbao.funlab.casa/v1/sys/health
 
 **Location:** `/etc/nginx/conf.d/services.conf`
 
-**Certificate:**
+### OpenBao Certificate
 - Certificate: `/etc/nginx/certs/services.crt`
 - Private Key: `/etc/nginx/certs/services.key`
 - CA Chain: `/etc/nginx/certs/ca-chain.crt`
@@ -54,9 +91,19 @@ curl -k https://openbao.funlab.casa/v1/sys/health
 - Validity: 30 days
 - SANs: openbao.funlab.casa, spire.funlab.casa, keylime.funlab.casa, localhost, 10.10.2.62
 
+### Keylime Certificate
+- Certificate: `/etc/nginx/certs/keylime.crt`
+- Private Key: `/etc/nginx/certs/keylime.key`
+- CA Chain: `/etc/nginx/certs/keylime-ca-chain.crt`
+- Issuer: Book of Omens (OpenBao PKI)
+- Validity: 30 days
+- SANs: verifier.keylime.funlab.casa, registrar.keylime.funlab.casa, keylime.funlab.casa, localhost, 10.10.2.62
+
 **Virtual Hosts:**
 1. openbao.funlab.casa:443 → localhost:8200 (OpenBao)
-2. spire.funlab.casa:443 → Info page (SPIRE uses gRPC)
+2. verifier.keylime.funlab.casa:443 → localhost:8881 (Keylime Verifier)
+3. registrar.keylime.funlab.casa:443 → localhost:8891 (Keylime Registrar)
+4. spire.funlab.casa:443 → Info page (SPIRE uses gRPC)
 
 ---
 
@@ -65,20 +112,23 @@ curl -k https://openbao.funlab.casa/v1/sys/health
 All services resolve to **10.10.2.62** (spire.funlab.casa):
 
 ```dns
-openbao.funlab.casa.    IN  A   10.10.2.62
-keylime.funlab.casa.    IN  A   10.10.2.62
-spire.funlab.casa.      IN  A   10.10.2.62
+openbao.funlab.casa.                 IN  A   10.10.2.62
+keylime.funlab.casa.                 IN  A   10.10.2.62
+verifier.keylime.funlab.casa.        IN  A   10.10.2.62
+registrar.keylime.funlab.casa.       IN  A   10.10.2.62
+spire.funlab.casa.                   IN  A   10.10.2.62
 ```
 
 ---
 
 ## Benefits Achieved
 
-✅ **No Port Numbers** - Standard HTTPS port 443  
-✅ **Service-Specific DNS** - Clear, self-documenting URLs  
-✅ **Better Certificates** - Proper CN and SANs for each service  
-✅ **TLS Termination** - Nginx handles SSL/TLS  
-✅ **Future Ready** - Can add load balancing easily  
+✅ **No Port Numbers** - Standard HTTPS port 443
+✅ **Service-Specific DNS** - Clear, self-documenting URLs
+✅ **Better Certificates** - Proper CN and SANs for each service
+✅ **Separate Subdomains** - Keylime services have dedicated subdomains
+✅ **TLS Termination** - Nginx handles SSL/TLS
+✅ **Future Ready** - Can add load balancing easily
 
 ---
 
@@ -100,27 +150,58 @@ export BAO_SKIP_VERIFY=true
 bao status
 ```
 
+### Keylime API Access
+
+**Old way (with port numbers):**
+```bash
+curl -k https://spire.funlab.casa:8881/version
+curl -k https://spire.funlab.casa:8891/version
+```
+
+**New way (preferred):**
+```bash
+curl -k https://verifier.keylime.funlab.casa/version
+curl -k https://registrar.keylime.funlab.casa/version
+```
+
 ### Certificate Issuance
 
 ```bash
-# Issue certificate
-bao write pki_int/issue/keylime-services \
-    common_name='agent.keylime.funlab.casa' \
-    alt_names='localhost' \
-    ip_sans='10.10.2.X,127.0.0.1' \
-    ttl='168h'
+# OpenBao certificate
+bao write -format=json pki_int/issue/openbao-server \
+    common_name='openbao.funlab.casa' \
+    alt_names='spire.funlab.casa,keylime.funlab.casa,localhost' \
+    ip_sans='10.10.2.62,127.0.0.1' \
+    ttl='720h'
+
+# Keylime certificate
+bao write -format=json pki_int/issue/openbao-server \
+    common_name='verifier.keylime.funlab.casa' \
+    alt_names='registrar.keylime.funlab.casa,keylime.funlab.casa,localhost' \
+    ip_sans='10.10.2.62,127.0.0.1' \
+    ttl='720h'
 ```
 
 ---
 
 ## Notes
 
-### Keylime Verifier
-The Keylime verifier is not currently running as a standalone HTTPS service. Keylime agents communicate directly with the verifier on their configured ports. The nginx proxy for Keylime was removed since the verifier isn't listening on port 8881.
+### Keylime Verifier Service
+The Keylime verifier is now running and accessible via nginx reverse proxy. It was started manually and needs a systemd service unit for automatic startup on boot.
+
+**To start verifier manually:**
+```bash
+sudo /usr/local/bin/keylime_verifier &
+```
+
+**To create systemd service (TODO):**
+Create `/etc/systemd/system/keylime_verifier.service`
 
 ### Certificate Renewal
-The nginx certificate expires in 30 days and should be renewed via OpenBao:
 
+Certificates expire in 30 days and should be renewed via OpenBao:
+
+**OpenBao Certificate:**
 ```bash
 export BAO_ADDR=https://openbao.funlab.casa
 export BAO_TOKEN=<token>
@@ -140,6 +221,26 @@ sudo cp /tmp/nginx.key /etc/nginx/certs/services.key
 sudo systemctl reload nginx
 ```
 
+**Keylime Certificate:**
+```bash
+export BAO_ADDR=https://openbao.funlab.casa
+export BAO_TOKEN=<token>
+
+# Renew certificate
+bao write -format=json pki_int/issue/openbao-server \
+    common_name='verifier.keylime.funlab.casa' \
+    alt_names='registrar.keylime.funlab.casa,keylime.funlab.casa,localhost' \
+    ip_sans='10.10.2.62,127.0.0.1' \
+    ttl='720h' > /tmp/keylime-nginx-cert.json
+
+# Install new certificate
+sudo jq -r '.data.certificate' /tmp/keylime-nginx-cert.json > /tmp/keylime.crt
+sudo jq -r '.data.private_key' /tmp/keylime-nginx-cert.json > /tmp/keylime.key
+sudo cp /tmp/keylime.crt /etc/nginx/certs/keylime.crt
+sudo cp /tmp/keylime.key /etc/nginx/certs/keylime.key
+sudo systemctl reload nginx
+```
+
 ---
 
 ## Testing
@@ -147,20 +248,37 @@ sudo systemctl reload nginx
 ### Verify DNS
 ```bash
 dig +short openbao.funlab.casa
-# Should return: 10.10.2.62
+dig +short verifier.keylime.funlab.casa
+dig +short registrar.keylime.funlab.casa
+# All should return: 10.10.2.62
 ```
 
-### Test OpenBao
+### Test Services
 ```bash
+# OpenBao
 curl -k https://openbao.funlab.casa/v1/sys/health
 # Should return JSON with initialized=true
+
+# Keylime Verifier
+curl -k https://verifier.keylime.funlab.casa/version
+# Should return JSON with current_version
+
+# Keylime Registrar
+curl -k https://registrar.keylime.funlab.casa/version
+# Should return JSON with current_version
 ```
 
-### Verify Certificate
+### Verify Certificates
 ```bash
+# OpenBao certificate
 echo | openssl s_client -connect openbao.funlab.casa:443 \
     -servername openbao.funlab.casa 2>/dev/null | \
-    openssl x509 -noout -subject -issuer -dates
+    openssl x509 -noout -subject -issuer -ext subjectAltName
+
+# Keylime certificate
+echo | openssl s_client -connect verifier.keylime.funlab.casa:443 \
+    -servername verifier.keylime.funlab.casa 2>/dev/null | \
+    openssl x509 -noout -subject -issuer -ext subjectAltName
 ```
 
 ---
@@ -168,9 +286,12 @@ echo | openssl s_client -connect openbao.funlab.casa:443 \
 ## Files Modified
 
 - `/etc/nginx/conf.d/services.conf` - Nginx virtual host configuration
-- `/etc/nginx/certs/services.crt` - SSL certificate
-- `/etc/nginx/certs/services.key` - SSL private key
-- `/etc/nginx/certs/ca-chain.crt` - CA certificate chain
+- `/etc/nginx/certs/services.crt` - OpenBao SSL certificate
+- `/etc/nginx/certs/services.key` - OpenBao SSL private key
+- `/etc/nginx/certs/ca-chain.crt` - OpenBao CA certificate chain
+- `/etc/nginx/certs/keylime.crt` - Keylime SSL certificate
+- `/etc/nginx/certs/keylime.key` - Keylime SSL private key
+- `/etc/nginx/certs/keylime-ca-chain.crt` - Keylime CA certificate chain
 
 ---
 
@@ -185,8 +306,10 @@ Internet/Network
         ▼
    Nginx Reverse Proxy
         │
-        ├─► openbao.funlab.casa:443 ──► localhost:8200 (OpenBao)
-        └─► spire.funlab.casa:443 ────► Info page
+        ├─► openbao.funlab.casa:443 ──────────► localhost:8200 (OpenBao)
+        ├─► verifier.keylime.funlab.casa:443 ─► localhost:8881 (Keylime Verifier)
+        ├─► registrar.keylime.funlab.casa:443 ► localhost:8891 (Keylime Registrar)
+        └─► spire.funlab.casa:443 ────────────► Info page (SPIRE gRPC)
 ```
 
 ---
@@ -194,11 +317,13 @@ Internet/Network
 ## Next Steps (Optional)
 
 1. ✅ Update OpenBao configuration to advertise new URL
-2. ⏸️ Start Keylime verifier if needed for direct API access
-3. ⏸️ Add nginx proxy for Keylime when verifier is running
-4. ⏸️ Set up automated certificate renewal
-5. ⏸️ Add monitoring for nginx service
+2. ✅ Start Keylime verifier service
+3. ✅ Add nginx proxy for Keylime services with separate subdomains
+4. ⏸️ Create systemd service unit for Keylime verifier
+5. ⏸️ Set up automated certificate renewal
+6. ⏸️ Add monitoring for nginx service
+7. ⏸️ Update Keylime agents to use new URLs (optional)
 
 ---
 
-**Status:** Production ready for OpenBao PKI! 🎉
+**Status:** Production ready! All services accessible via standard HTTPS port 443 with service-specific subdomains! 🎉
