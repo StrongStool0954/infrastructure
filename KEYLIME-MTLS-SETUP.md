@@ -729,6 +729,172 @@ sudo systemctl restart keylime_agent
 
 ---
 
+## Certificate Expiration Monitoring
+
+### Overview
+
+Automated monitoring checks certificate expiration every 6 hours on all hosts. Alerts are logged to systemd journal with appropriate severity levels.
+
+### Monitoring Script
+
+**Location:** `/usr/local/bin/check-keylime-certs.sh` on all hosts
+
+**Features:**
+- Checks all Keylime certificates on each host
+- Three alert levels: OK, WARNING (<6h), CRITICAL (<2h)
+- Logs to systemd journal and syslog with appropriate severity
+- Exit codes for systemd tracking (0=OK, 1=WARNING, 2=CRITICAL)
+- Hostname-aware: checks appropriate certificates per host
+
+**Certificates Monitored Per Host:**
+
+| Host  | Certificates Checked |
+|-------|---------------------|
+| spire | registrar.crt, verifier.crt, agent.crt, ca-root-only.crt |
+| auth  | agent.crt, ca-root-only.crt |
+| ca    | agent.crt, ca-root-only.crt |
+
+**Alert Thresholds:**
+- **WARNING:** Certificate expires in less than 6 hours
+- **CRITICAL:** Certificate expires in less than 2 hours
+- **EXPIRED:** Certificate has already expired
+
+### Systemd Timer Configuration
+
+**Timer File:** `/etc/systemd/system/check-keylime-certs.timer`
+
+```ini
+[Unit]
+Description=Keylime Certificate Expiration Check Timer
+
+[Timer]
+# Run every 6 hours
+OnCalendar=00/6:00:00
+
+# Run 5 minutes after boot if missed
+OnBootSec=5min
+
+# Accuracy
+AccuracySec=5min
+
+[Install]
+WantedBy=timers.target
+```
+
+**Schedule:** Every 6 hours at 00:00, 06:00, 12:00, 18:00
+
+**Status (as of 2026-02-12):**
+
+| Host  | Next Run (EST)          | Status |
+|-------|-------------------------|--------|
+| auth  | Thu 2026-02-12 18:00:00 | Active |
+| spire | Thu 2026-02-12 18:00:00 | Active |
+| ca    | Thu 2026-02-12 18:00:00 | Active |
+
+### Monitoring Output Example
+
+**Normal Operation (All OK):**
+```
+[2026-02-12T16:39:11-05:00] === Certificate Expiration Check on auth ===
+
+Checking Agent certificate...
+OK: agent expires in 23h (0d) - Subject: CN=agent.keylime.funlab.casa
+  Expires: 2026-02-13 16:23:34 EST
+
+Checking CA certificate...
+OK: ca-root-only expires in 875949h (36497d) - Subject: CN=Eye of Thundera
+  Expires: 2126-01-17 13:53:17 EST
+
+[2026-02-12T16:39:11-05:00] === Check Complete ===
+[2026-02-12T16:39:11-05:00] Status: All certificates OK
+```
+
+**Warning State Example:**
+```
+WARNING: agent expires in 5h - Subject: CN=agent.keylime.funlab.casa
+  Expires: 2026-02-13 21:30:00 EST
+
+Syslog: "Certificate WARNING: agent expires in 5h on auth"
+```
+
+**Critical State Example:**
+```
+CRITICAL: agent expires in 1h - Subject: CN=agent.keylime.funlab.casa
+  Expires: 2026-02-13 17:45:00 EST
+
+Syslog: "Certificate CRITICAL: agent expires in 1h on auth"
+```
+
+### Verification Commands
+
+**Check timer status:**
+```bash
+sudo systemctl list-timers check-keylime-certs.timer
+```
+
+**View latest check results:**
+```bash
+sudo journalctl -u check-keylime-certs.service -n 20
+```
+
+**Run manual check:**
+```bash
+sudo /usr/local/bin/check-keylime-certs.sh
+```
+
+**Check for warnings or critical alerts:**
+```bash
+# View all monitoring alerts
+sudo journalctl -t keylime-cert-monitor -p warning
+
+# View only critical alerts
+sudo journalctl -t keylime-cert-monitor -p crit
+```
+
+### Integration with Renewal System
+
+The monitoring system provides defense-in-depth with the renewal automation:
+
+| System | Schedule | Purpose |
+|--------|----------|---------|
+| **Renewal** | Daily at ~02:00 | Renews 24h certificates before expiration |
+| **Monitoring** | Every 6 hours | Verifies certificates remain valid |
+
+**Failure Detection:**
+- If renewal fails at 02:00, monitoring will detect expiring certificate
+- First warning at 18:00 (6 hours before expiration at 00:00)
+- Critical alert at 22:00 (2 hours before expiration)
+- Provides 6-hour window to investigate and manually renew if needed
+
+### Troubleshooting
+
+**Issue: Timer not running**
+```bash
+sudo systemctl status check-keylime-certs.timer
+sudo systemctl start check-keylime-certs.timer
+sudo systemctl enable check-keylime-certs.timer
+```
+
+**Issue: Service failing**
+```bash
+# Check service logs
+sudo journalctl -u check-keylime-certs.service -n 50
+
+# Test script manually
+sudo /usr/local/bin/check-keylime-certs.sh
+
+# Check script permissions
+ls -la /usr/local/bin/check-keylime-certs.sh
+# Should be: -rwxr-xr-x root root
+```
+
+**Issue: No alerts appearing**
+- Normal if all certificates are OK
+- Alerts only appear when certificates expire in <6 hours
+- Check service execution: `sudo journalctl -u check-keylime-certs.service`
+
+---
+
 ## Key Lessons Learned
 
 ### 1. TLS Library Differences Matter
@@ -801,9 +967,9 @@ All CA cert paths now point to `ca-root-only.crt`:
 
 **Analysis By:** Claude Code
 **Date:** 2026-02-12
-**Last Updated:** 2026-02-12 16:30 EST
-**Total Investigation Time:** ~3.5 hours (2h TLS + 1.5h renewal automation)
-**Status:** ✅ Fully Resolved, Automated, and Documented
+**Last Updated:** 2026-02-12 16:40 EST
+**Total Investigation Time:** ~4 hours (2h TLS + 1.5h renewal + 0.5h monitoring)
+**Status:** ✅ Fully Resolved, Automated, Monitored, and Documented
 
 ### Summary of Achievements
 
@@ -816,9 +982,10 @@ All CA cert paths now point to `ca-root-only.crt`:
 7. ✅ **JSON Parsing Fix** - Handled Windows line endings from bao/vault CLI
 8. ✅ **Service Reliability** - Proper service restart mechanisms implemented
 9. ✅ **Testing & Verification** - All renewal scripts tested and validated
-10. ✅ **Documentation** - Complete troubleshooting guide and operational procedures
+10. ✅ **Expiration Monitoring** - Automated monitoring every 6 hours with multi-level alerts
+11. ✅ **Documentation** - Complete troubleshooting guide and operational procedures
 
 **Next Steps:**
 - Monitor first automated renewal run (scheduled for 2026-02-13 ~02:00 EST)
-- Consider setting up certificate expiration monitoring/alerting
+- ✅ Certificate expiration monitoring deployed (checks every 6 hours)
 - Document verifier mTLS communication flow when attestation begins
