@@ -82,29 +82,40 @@ The provisioner has been added to both step-ca instances on ca.funlab.casa:
 
 #### Sign User SSH Certificate
 
+**✅ TESTED AND WORKING** (2026-02-13)
+
 ```bash
 step ssh certificate <username> <public-key-path> \
   --provisioner tygra-test \
   --ca-url https://tygra.funlab.casa:8444 \
   --root <(curl -sk https://tygra.funlab.casa:8444/roots.pem) \
-  --password-file <(echo "TygraTest2026!") \
+  --provisioner-password-file <(echo -n "TygraTest2026!") \
   --principal <username> \
   --not-after 1h \
+  --no-password \
+  --insecure \
   --force
 ```
 
-**Example:**
+**Working Example:**
 ```bash
 step ssh certificate bullwinkle ~/.ssh/id_ed25519.pub \
   --provisioner tygra-test \
   --ca-url https://tygra.funlab.casa:8444 \
   --root <(curl -sk https://tygra.funlab.casa:8444/roots.pem) \
-  --password-file <(echo "TygraTest2026!") \
+  --provisioner-password-file <(echo -n "TygraTest2026!") \
   --principal bullwinkle \
   --principal root \
   --not-after 1h \
+  --no-password \
+  --insecure \
   --force
 ```
+
+**Important Flags:**
+- `--no-password` - Don't encrypt the certificate (requires `--insecure`)
+- `--insecure` - Allow `--no-password` flag
+- Use `echo -n` (no newline) for password file
 
 #### Sign Host SSH Certificate
 
@@ -284,11 +295,61 @@ step ca token testuser \
 
 ---
 
+## Test Results
+
+### SSH Certificate Signing Test - ✅ SUCCESS
+
+**Date:** 2026-02-13 03:23 EST
+**Result:** **PASSED** - Certificate generated and verified
+
+#### Test Certificate Details
+
+```
+Type: ecdsa-sha2-nistp256-cert-v01@openssh.com user certificate
+Public Key: ECDSA-CERT SHA256:FdHUAgsq2mSKWMllyVVEydHIaSzqkIiYe2rNbwZCVu4
+Signing CA: ED25519 SHA256:8Fa2nhYeMLCYSvw1SD5XzVw5CETCYf+GKyYXDl6Tta8
+Key ID: "test-user"
+Serial: 15799992997065510202
+Valid: from 2026-02-13T03:22:22 to 2026-02-13T04:23:22 (1 hour)
+Principals: bullwinkle, root
+Extensions: permit-X11-forwarding, permit-agent-forwarding,
+            permit-port-forwarding, permit-pty, permit-user-rc
+```
+
+#### Test Command Used
+
+```bash
+step ssh certificate test-user /tmp/test_ssh_key.pub \
+  --provisioner tygra-test \
+  --ca-url https://tygra.funlab.casa:8444 \
+  --root /tmp/tygra-root.crt \
+  --provisioner-password-file /tmp/test-password.txt \
+  --principal bullwinkle \
+  --principal root \
+  --not-after 1h \
+  --no-password \
+  --insecure \
+  --force
+```
+
+**Result:** Certificate successfully created at `/tmp/test_ssh_key.pub-cert.pub`
+
+#### Verification Steps
+
+1. ✅ Token generation successful
+2. ✅ Provisioner authentication successful
+3. ✅ Certificate signed with correct principals
+4. ✅ 1-hour validity applied correctly
+5. ✅ Standard SSH extensions included
+6. ✅ Certificate verifiable with `ssh-keygen -L`
+
+---
+
 ## Next Steps
 
 1. ✅ Provisioner created and deployed
 2. ✅ Token generation verified
-3. 🔲 Complete end-to-end SSH certificate signing test (requires TTY)
+3. ✅ **Complete end-to-end SSH certificate signing test** - **PASSED**
 4. 🔲 Integrate with SSH client configurations
 5. 🔲 Set up automated certificate rotation
 6. 🔲 Configure monitoring for certificate expiration
@@ -296,6 +357,7 @@ step ca token testuser \
 
 ---
 
-**Deployment Status:** ✅ **OPERATIONAL**  
-**Last Updated:** 2026-02-13 03:15 EST  
+**Deployment Status:** ✅ **OPERATIONAL & TESTED**
+**Last Updated:** 2026-02-13 03:23 EST
 **Deployed By:** Claude Sonnet 4.5 + bullwinkle@bullwinkle
+**Test Status:** ✅ SSH certificate signing verified and working
