@@ -127,10 +127,14 @@ All chains validate: ✅ OK
 - `/etc/nginx/ssl/` - Service certificates
 - **YubiKey #26520349 Slot 9d** - Book of Omens backup private key
 - OpenBao PKI updated with NEW Book of Omens
+- `/etc/openbao/certs/ca.crt` - Updated to NEW Book of Omens (Feb 14) + Eye of Thundera chain
+- `/etc/openbao/certs/ca.crt.old-feb11` - Backup of old CA certificate
 
 ### auth.funlab.casa
 - `/etc/keylime/certs/` - All certificates renewed
 - `/etc/spire/agent.conf` - Updated to use agent-pkcs8.key
+- `/opt/authentik/authentik/.env` - Updated with new OpenBao database credentials
+- `/opt/authentik/authentik/.env.backup-*` - Timestamped backups
 
 ### All Hosts (spire, auth, ca)
 - `/etc/spire/agent.conf` - Updated keylime_agent_client_key path from `agent.key` to `agent-pkcs8.key`
@@ -182,6 +186,72 @@ All chains validate: ✅ OK
 - ✅ All nginx endpoints: Serving with PKCS#8 certs
 - ✅ Certificate chain validation: All chains valid
 - ✅ Zero migration-related failures after fixes applied
+
+---
+
+## Post-Migration Fixes (2026-02-13 21:40-21:52)
+
+### OpenBao CA Certificate Chain Update
+**Problem:** OpenBao had OLD Book of Omens CA certificate (Feb 11) but all renewed service certificates were signed by NEW Book of Omens (Feb 14), causing mTLS failures.
+
+**Root Cause:** During initial CA update, copied wrong certificate chain to `/etc/openbao/certs/ca.crt`
+
+**Solution:**
+1. Located NEW Book of Omens certificate: `/tmp/openbao-book-of-omens-cert.pem` (Feb 14)
+2. Built correct CA chain: NEW Book of Omens + NEW Eye of Thundera
+3. Updated OpenBao configuration:
+   ```bash
+   # Old: ca.crt contained OLD Book of Omens (Feb 11)
+   # New: ca.crt contains NEW Book of Omens (Feb 14) + Eye of Thundera
+   cat /tmp/openbao-book-of-omens-cert.pem /etc/keylime/certs/ca-root-only.crt > /etc/openbao/certs/ca.crt
+   ```
+4. Restarted OpenBao service
+5. Manually unsealed using systemd-creds encrypted keys
+
+**Files Modified:**
+- `/etc/openbao/certs/ca.crt` - NEW CA chain installed
+- `/etc/openbao/certs/ca.crt.old-feb11` - Backup of old certificate
+
+**Verification:**
+- ✅ Client certificate verification successful
+- ✅ OpenBao unsealed and operational
+- ✅ mTLS connections working
+
+### Authentik Database Credential Renewal
+**Problem:** Authentik using expired OpenBao dynamic database credentials (user: `v-root-authenti-6zc7Ha41IoDIDULxXp4T-1770952792`), causing database authentication failures.
+
+**Solution:**
+1. Unsealed OpenBao (required for database secrets access)
+2. Generated new credentials from `database/creds/authentik` role:
+   - Username: `v-root-authenti-w7MvzTXlaZS64D3E1C6H-1771037432`
+   - Password: Auto-generated (20 chars)
+   - TTL: 1 hour
+3. Updated Authentik configuration:
+   ```bash
+   # Updated /opt/authentik/authentik/.env
+   AUTHENTIK_DB_USER=v-root-authenti-w7MvzTXlaZS64D3E1C6H-1771037432
+   AUTHENTIK_DB_PASSWORD=<generated>
+   ```
+4. Recreated Docker containers to load new credentials:
+   ```bash
+   docker stop authentik-server authentik-worker
+   docker rm authentik-server authentik-worker
+   docker compose up -d
+   ```
+
+**Files Modified:**
+- `/opt/authentik/authentik/.env` - Updated database credentials
+- `/opt/authentik/authentik/.env.backup-*` - Timestamped backup
+
+**Verification:**
+- ✅ All Authentik containers healthy
+- ✅ No database authentication errors
+- ✅ PostgreSQL connection successful
+
+### Known Issues Remaining
+1. **Keylime Attestation Failing:** Auto-unseal not working due to "internal.verifier.not_reachable" - OpenBao requires manual unseal after restart
+2. **Nginx → OpenBao Proxy:** Still returns 502 - certificate chain needs intermediate certificate bundle
+3. **Authentik Credential Renewal:** No auto-renewal configured - credentials will expire in 1 hour
 
 ---
 
