@@ -51,6 +51,8 @@ Complete guide for registering new hosts with SPIRE and Keylime attestation usin
 
 ### Step 1: Issue Certificate from Book of Omens
 
+**Note:** Keylime requires private keys in PKCS#8 format. OpenBao can generate this directly using the `private_key_format=pkcs8` parameter, eliminating the need for manual conversion from EC format.
+
 On the new host, generate a certificate for Keylime agent:
 
 ```bash
@@ -58,12 +60,13 @@ export NEW_HOST="newhostname"
 export BAO_ADDR='https://openbao.funlab.casa:8088'
 export BAO_TOKEN='<root-token-from-1password>'
 
-# Issue certificate with both server and client auth
+# Issue certificate with both server and client auth in PKCS#8 format
 bao write pki_int/issue/keylime-services \
   common_name="agent.keylime.${NEW_HOST}.funlab.casa" \
   alt_names="localhost" \
   ip_sans="127.0.0.1,<HOST_IP>" \
   ttl=168h \
+  private_key_format=pkcs8 \
   format=pem > /tmp/keylime-cert.json
 
 # Extract certificate and key
@@ -676,9 +679,9 @@ head -1 /etc/keylime/certs/agent-pkcs8.key
 # WRONG:   -----BEGIN RSA PRIVATE KEY-----
 ```
 
-**Solution:** Re-issue certificate from OpenBao, which provides PKCS#8 by default.
+**Solution:** Re-issue certificate from OpenBao with `private_key_format=pkcs8` parameter (see Step 1).
 
-**If you need to convert an existing key:**
+**If you have an old EC format key:**
 ```bash
 # Convert EC key to PKCS#8
 openssl pkcs8 -topk8 -nocrypt \
