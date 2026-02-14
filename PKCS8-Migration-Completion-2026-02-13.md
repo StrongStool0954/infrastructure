@@ -146,9 +146,16 @@ All chains validate: ✅ OK
 1. ✅ **Upload encrypted backups to 1Password** (2026-02-13 20:55)
    - `eye-of-thundera-key-encrypted.pem` uploaded
    - `sword-of-omens-key-encrypted.pem` uploaded
-   - Password: `TEMP_PKCS8_DR_EXERCISE_2026` (change after upload)
+   - Password: `TEMP_PKCS8_DR_EXERCISE_2026`
 
-2. ✅ **Update nginx renewal script** (2026-02-13 21:10)
+2. ✅ **Upload unencrypted backups to 1Password** (2026-02-13 21:15)
+   - `eye-of-thundera-key.pem` → "Eye of Thundera - Root CA Private Key (PKCS#8 Unencrypted)"
+   - `sword-of-omens-key.pem` → "Sword of Omens - Intermediate CA Private Key (PKCS#8 Unencrypted Backup)"
+   - `eye-of-thundera-cert.pem` → "Eye of Thundera - Root CA Certificate"
+   - Vault: Funlab.Casa.Ca
+   - No password required (secured by 1Password vault encryption)
+
+3. ✅ **Update nginx renewal script** (2026-02-13 21:10)
    - Fixed path: `/etc/nginx/certs` → `/etc/nginx/ssl`
    - Fixed URL: Added `:8088` port to OpenBao address
    - Updated certificate names: openbao.crt, registrar-keylime.crt, verifier-keylime.crt
@@ -156,11 +163,7 @@ All chains validate: ✅ OK
    - Tested successfully - all 3 certificates renewed
 
 ### TODO
-1. **Change backup encryption password:**
-   - Update 1Password items with production password
-   - Current temp password: `TEMP_PKCS8_DR_EXERCISE_2026`
-
-2. **Authentik Integration:**
+1. **Authentik Integration:**
    - Renew Authentik certificates (on auth host 10.10.2.70)
    - Configure Authentik → step-ca OIDC integration for certificate issuance
 
