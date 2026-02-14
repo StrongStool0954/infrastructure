@@ -130,10 +130,58 @@ All chains validate: ✅ OK
 
 ### auth.funlab.casa
 - `/etc/keylime/certs/` - All certificates renewed
+- `/etc/spire/agent.conf` - Updated to use agent-pkcs8.key
+
+### All Hosts (spire, auth, ca)
+- `/etc/spire/agent.conf` - Updated keylime_agent_client_key path from `agent.key` to `agent-pkcs8.key`
+- `/etc/keylime/certs/agent-pkcs8.key` - Permissions: 640, Owner: keylime:spire (for SPIRE access)
+- `/run/spire/` - Created runtime directory (ca host only)
 
 ### snarf.funlab.casa
 - `/tmp/step-ca-pkcs8-migration/` - All generated keys and certificates
 - Encrypted backups ready for 1Password upload
+
+---
+
+## Post-Migration Testing & Validation
+
+### Service Health Check (2026-02-13 21:22)
+
+**SPIRE Services:**
+- ✅ spire-agent (spire, auth, ca) - All active
+- ✅ spire-server (spire) - Active and healthy
+- ⚠️  Initial failures due to PKCS#8 key path mismatch - **FIXED**
+
+**Keylime Services:**
+- ✅ keylime_agent (spire, auth, ca) - All active
+- ✅ keylime_registrar (spire) - Active
+- ✅ keylime_verifier (spire) - Active
+- ✅ All certificates valid until Feb 15 2026 (24h TTL)
+- ✅ Zero TLS/certificate errors in logs
+- ✅ All certificates in PKCS#8 format
+
+**Authentik Services:**
+- ✅ Docker containers healthy (server, worker, redis, postgres)
+- ⚠️  Database credential errors (OpenBao lease expiration - unrelated to migration)
+
+**Nginx/TLS:**
+- ✅ All endpoints serving with new PKCS#8 certificates
+- ✅ Certificates renewed successfully (7-day TTL)
+
+### Issues Found During Testing
+1. **SPIRE agent config mismatch:** Referenced `agent.key` instead of `agent-pkcs8.key`
+   - **Fix:** Updated config on all hosts
+2. **Permission denied:** SPIRE couldn't read agent-pkcs8.key
+   - **Fix:** Changed to 640 permissions with keylime:spire ownership
+3. **Missing directory:** `/run/spire` didn't exist on ca host
+   - **Fix:** Created with correct ownership
+
+### Final Verification Results
+- ✅ All SPIRE agents: Active
+- ✅ All Keylime services: Active with PKCS#8 certs
+- ✅ All nginx endpoints: Serving with PKCS#8 certs
+- ✅ Certificate chain validation: All chains valid
+- ✅ Zero migration-related failures after fixes applied
 
 ---
 
@@ -161,6 +209,13 @@ All chains validate: ✅ OK
    - Updated certificate names: openbao.crt, registrar-keylime.crt, verifier-keylime.crt
    - Added PKCS#8 key conversion
    - Tested successfully - all 3 certificates renewed
+
+4. ✅ **Fix SPIRE agent configuration for PKCS#8** (2026-02-13 21:23)
+   - Updated `/etc/spire/agent.conf` on all 3 hosts (spire, auth, ca)
+   - Changed keylime_agent_client_key from `agent.key` to `agent-pkcs8.key`
+   - Fixed permissions: `chmod 640` and `chown keylime:spire` on agent-pkcs8.key
+   - Created `/run/spire` directory on ca host
+   - All SPIRE agents now active and operational
 
 ### TODO
 1. **Authentik Integration:**
