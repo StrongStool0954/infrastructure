@@ -1,0 +1,38 @@
+version: 1
+metadata:
+  name: step-ca OIDC Provider
+  labels:
+    purpose: certificate-issuance
+    managed-by: claude
+
+entries:
+  # step-ca OAuth2/OIDC Provider
+  - model: authentik_providers_oauth2.oauth2provider
+    identifiers:
+      name: step-ca-oidc-provider
+    attrs:
+      client_type: confidential
+      client_id: step-ca-client-2026
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      redirect_uris: |
+        https://ca.funlab.casa/1.0/sign
+        http://localhost:10000
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+      sub_mode: hashed_user_id
+      include_claims_in_id_token: true
+      issuer_mode: per_provider
+
+  # step-ca Application
+  - model: authentik_core.application
+    identifiers:
+      slug: step-ca
+    attrs:
+      name: step-ca Certificate Authority
+      provider: !Find [authentik_providers_oauth2.oauth2provider, [name, step-ca-oidc-provider]]
+      meta_launch_url: https://ca.funlab.casa
+      meta_description: Certificate issuance via OIDC authentication
+      meta_publisher: Infrastructure Team
+      policy_engine_mode: any

@@ -1,0 +1,110 @@
+{
+  "root": "/etc/step-ca/certs/root_ca.crt",
+  "federatedRoots": null,
+  "crt": "/etc/step-ca/certs/intermediate_ca.crt",
+  "key": "pkcs11:id=%03;object=Private%20key%20for%20Key%20Management",
+  "address": ":8443",
+  "insecureAddress": "",
+  "dnsNames": [
+    "ca.funlab.casa"
+  ],
+  "logger": {
+    "format": "text"
+  },
+  "db": {
+    "type": "badgerv2",
+    "dataSource": "/etc/step-ca/db",
+    "badgerFileLoadingMode": ""
+  },
+  "authority": {
+    "provisioners": [
+      {
+        "type": "JWK",
+        "name": "tower-of-omens",
+        "key": {
+          "use": "sig",
+          "kty": "EC",
+          "kid": "GRXLPijSu26raitoqOCJjzXHcQ3feE0oBUDEMLt1JD4",
+          "crv": "P-256",
+          "alg": "ES256",
+          "x": "efUorfFb6_6SQzEZj8IY2ZAcMIjdrsCVWNj-l6qZ70Y",
+          "y": "XeMVbmj1FUkjmW6iy9lCv_GEal0dGsRiF5KnTh1JkUI"
+        },
+        "encryptedKey": "eyJhbGciOiJQQkVTMi1IUzI1NitBMTI4S1ciLCJjdHkiOiJqd2sranNvbiIsImVuYyI6IkEyNTZHQ00iLCJwMmMiOjYwMDAwMCwicDJzIjoiT2M5YXRjcGM5UjhNckRPVDI4UlN5USJ9.suBO_Ap9YTg9i27qmfMpWpRBbK2JS1ILUFBkiHXVZqd7wl9iav-miA.5aE7oCVb6DAFTGXz.rwBkdRRbA_6XHacX5tPR7MPvdsR0sNSyNh5hd-WQr64W_Ck-s8LR0rmv0IWzoSjXlbnFho9ItS30XQrKNeR0CHRkL0LvxLCOk7rEQnLEIznAAEzYoNRDzrOPHo8dDs1lAMi2Jr-YK3ACvhzlqFsItz0DK3RZI3FEAvMZh13EDrUElYI9auSYUK_jue4brMhhQ9bvzWshZXsHt7QJnP7ds6TtKgZd3o1aU6TTxDIIz-Cf4c_xHf3gRIBqRhrMB0G9Gp3nbTKs6wrqgY9Bb_k2WhHaYLZehjn6GUPTy8EF0xHtaIT0bPnAeT_-71VszkxPBK2C1hJ-1S_AfWfM4Ew.YOeXx0CTWigxza9yay7Phg"
+      },
+      {
+        "type": "ACME",
+        "name": "acme"
+      },
+      {
+        "type": "JWK",
+        "name": "tpm-devid",
+        "key": {
+          "use": "sig",
+          "kty": "EC",
+          "kid": "P3jCxtTIlitRc4WGPXfXpM7BDHQpt0pQLt-J1o7DnHY",
+          "crv": "P-256",
+          "alg": "ES256",
+          "x": "hgE6pZmmQDzKnTtK_Py1uiBcQ1rixcKpt8ehCGyZIxs",
+          "y": "ZgL6IadMINL96AnSa4ACumyahFVWJYXwWfSsQS51BNA",
+          "d": "hxSocDA4WtPQRErEyBNhHORGCSKnwHpf9tuFOatWdpI"
+        },
+        "claims": {
+          "maxTLSCertDuration": "2160h",
+          "defaultTLSCertDuration": "2160h"
+        }
+      },
+      {
+        "type": "JWK",
+        "name": "tygra-test",
+        "key": {
+          "use": "sig",
+          "kty": "EC",
+          "kid": "nWkjB6bJuPl91O6CAh0Cz1mdhie4CnRpTKX4_S4JZmU",
+          "crv": "P-256",
+          "alg": "ES256",
+          "x": "Ih2YIf-a46CPnIbLczy3uoy4bJaSMYyrVzg3DvmW1O8",
+          "y": "tDdUwoK5Fe26VEZRUQgNITB1j1iRYJUy-sFtk1eEy7o"
+        },
+        "encryptedKey": "eyJhbGciOiJQQkVTMi1IUzI1NitBMTI4S1ciLCJjdHkiOiJqd2sranNvbiIsImVuYyI6IkEyNTZHQ00iLCJwMmMiOjYwMDAwMCwicDJzIjoiV3NVaVdFRW1uV1dTdWl0eENGaVExUSJ9.PhTI5prH72AsMjj8JGu9TvkjTZxXgK5e3GTKoyR9AcpuVxXX7Mrr_w.o6PxoD8JN3cUsmEs.GWC0bTSbtl0D0oGtieoU-tByo3qNLggAcOK-L_pSTIEopcwoQOz2C5TyKiPCqPaSQheDMQFJoUnVD7ola_SWxLuyMGzIjvwUgNhnyy1jK8WRFENgzuPMiCVTHDJ982QpYYOS9cQbc5oT5mHwXaNAM2GM4UpTAh0fgm4IGfyh-ytqUJgcZUAlbZOqyakTES7rcCXX_K1ZBARE2zPHHL-QAkOngRQnsMj7asGspjE9G1rGq5kzzpH9Rj70w3joL5kMHzaPT4FIHdx9kqfn1gGgmVp_BWke55_M83BTcZgBk84RyU7gRGMbUTddWvgz9QNKFAPLvdVjpXbxIJm0RO0.viTw8uOPu2CyZOjlni7Vcg"
+      },
+      {
+        "type": "OIDC",
+        "name": "authentik",
+        "clientID": "step-ca-client-2026",
+        "clientSecret": "b92BW2vQLfc3tYbNApkiQ321wjDQOMcYItLMv17bqFyIrJEwGiycuIGpAxVH78KbJihusniy5mEnMIPU4xfy1np07SEvPQ4URP3FnKc3InDctJRozTbuThnumBWTutAe",
+        "configurationEndpoint": "https://auth.funlab.casa/application/o/step-ca/.well-known/openid-configuration",
+        "admins": [],
+        "domains": [
+          "funlab.casa"
+        ],
+        "claims": {
+          "enableSSHCA": false,
+          "disableRenewal": false,
+          "allowRenewalAfterExpiry": false,
+          "defaultTLSCertDuration": "24h",
+          "maxTLSCertDuration": "168h",
+          "minTLSCertDuration": "5m"
+        },
+        "options": {
+          "x509": {
+            "templateFile": "/etc/step-ca/templates/oidc-certificate.tpl"
+          }
+        }
+      }
+    ]
+  },
+  "tls": {
+    "cipherSuites": [
+      "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+      "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
+    ],
+    "minVersion": 1.2,
+    "maxVersion": 1.3,
+    "renegotiation": false
+  },
+  "kms": {
+    "type": "pkcs11",
+    "uri": "pkcs11:module-path=/usr/lib/x86_64-linux-gnu/libykcs11.so;token=YubiKey%20PIV%20%235497305;pin-source=/run/step-ca/yubikey-pin"
+  }
+}
