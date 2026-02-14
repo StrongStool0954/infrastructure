@@ -13,12 +13,13 @@ Complete guide for registering new hosts with SPIRE and Keylime attestation usin
 
 1. [Prerequisites](#prerequisites)
 2. [Certificate Issuance](#certificate-issuance)
-3. [Keylime Agent Setup](#keylime-agent-setup)
-4. [SPIRE Agent Installation](#spire-agent-installation)
-5. [Registration with Keylime](#registration-with-keylime)
-6. [SPIRE Agent Attestation](#spire-agent-attestation)
-7. [Verification](#verification)
-8. [Troubleshooting](#troubleshooting)
+3. [OpenBao Client Setup](#openbao-client-setup)
+4. [Keylime Agent Setup](#keylime-agent-setup)
+5. [SPIRE Agent Installation](#spire-agent-installation)
+6. [Registration with Keylime](#registration-with-keylime)
+7. [SPIRE Agent Attestation](#spire-agent-attestation)
+8. [Verification](#verification)
+9. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -120,6 +121,112 @@ Issuer: CN=Book of Omens, OU=Tower of Omens, O=Funlab.Casa, C=US
 Subject: CN=agent.keylime.newhostname.funlab.casa
 X509v3 Extended Key Usage:
     TLS Web Server Authentication, TLS Web Client Authentication
+```
+
+---
+
+## OpenBao Client Setup
+
+**Purpose:** Enable the host to connect to OpenBao via mTLS for automated certificate renewal and secrets access.
+
+### Step 1: Install bao CLI
+
+```bash
+# Copy bao binary from SPIRE server to new host
+scp spire.funlab.casa:/usr/bin/bao ${NEW_HOST}:/tmp/
+ssh ${NEW_HOST} "sudo mv /tmp/bao /usr/local/bin/ && sudo chmod +x /usr/local/bin/bao"
+
+# Verify installation
+ssh ${NEW_HOST} "/usr/local/bin/bao version"
+```
+
+### Step 2: Issue OpenBao Client Certificate
+
+On a host with bao CLI access (e.g., spire.funlab.casa):
+
+```bash
+export BAO_ADDR='https://openbao.funlab.casa:8088'
+export BAO_CACERT='/etc/openbao/certs/ca.crt'
+export BAO_TOKEN='<root-token-from-1password>'
+
+# Issue client certificate for OpenBao access
+bao write pki_int/issue/keylime-services \
+  common_name="${NEW_HOST}.funlab.casa" \
+  alt_names="localhost" \
+  ip_sans="127.0.0.1,<HOST_IP>" \
+  ttl=168h \
+  private_key_format=pkcs8 \
+  format=pem -format=json > /tmp/${NEW_HOST}-openbao-cert.json
+
+# Extract certificates
+cd /tmp
+jq -r '.data.certificate' ${NEW_HOST}-openbao-cert.json > ${NEW_HOST}-openbao.crt
+jq -r '.data.private_key' ${NEW_HOST}-openbao-cert.json > ${NEW_HOST}-openbao-pkcs8.key
+jq -r '.data.ca_chain[]' ${NEW_HOST}-openbao-cert.json > ${NEW_HOST}-openbao-ca.crt
+```
+
+### Step 3: Install OpenBao Certificates
+
+```bash
+# Copy certificates to new host
+scp /tmp/${NEW_HOST}-openbao.crt ${NEW_HOST}:/tmp/
+scp /tmp/${NEW_HOST}-openbao-pkcs8.key ${NEW_HOST}:/tmp/
+scp /tmp/${NEW_HOST}-openbao-ca.crt ${NEW_HOST}:/tmp/
+
+# Install on new host
+ssh ${NEW_HOST} "
+  sudo mkdir -p /etc/openbao/certs
+  sudo mv /tmp/${NEW_HOST}-openbao.crt /etc/openbao/certs/client.crt
+  sudo mv /tmp/${NEW_HOST}-openbao-pkcs8.key /etc/openbao/certs/client-pkcs8.key
+  sudo mv /tmp/${NEW_HOST}-openbao-ca.crt /etc/openbao/certs/ca.crt
+  sudo chmod 644 /etc/openbao/certs/client.crt
+  sudo chmod 600 /etc/openbao/certs/client-pkcs8.key
+  sudo chmod 644 /etc/openbao/certs/ca.crt
+"
+```
+
+### Step 4: Configure OpenBao Environment
+
+```bash
+ssh ${NEW_HOST} "
+  cat <<'EOF' | sudo tee /etc/profile.d/openbao.sh
+# OpenBao configuration
+export BAO_ADDR='https://openbao.funlab.casa:8088'
+export BAO_CACERT='/etc/openbao/certs/ca.crt'
+export BAO_CLIENT_CERT='/etc/openbao/certs/client.crt'
+export BAO_CLIENT_KEY='/etc/openbao/certs/client-pkcs8.key'
+EOF
+"
+```
+
+### Step 5: Verify mTLS Connection
+
+```bash
+ssh ${NEW_HOST} "
+  # Load environment
+  source /etc/profile.d/openbao.sh
+
+  # Test connection
+  bao status
+
+  # Test API access
+  curl -s --cert /etc/openbao/certs/client.crt \
+       --key /etc/openbao/certs/client-pkcs8.key \
+       --cacert /etc/openbao/certs/ca.crt \
+       https://openbao.funlab.casa:8088/v1/sys/health
+"
+```
+
+**Expected output:**
+```
+Key                     Value
+---                     -----
+Seal Type               shamir
+Initialized             true
+Sealed                  false
+...
+
+{"initialized":true,"sealed":false,...}
 ```
 
 ---
