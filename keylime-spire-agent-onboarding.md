@@ -292,18 +292,49 @@ sudo systemctl status spire-agent
 
 ### 3.1: Install Keylime Agent
 
+**IMPORTANT:** Always build from the custom fork, NOT upstream! The upstream has a regression in reqwest 0.13 that breaks TLS configuration.
+
 ```bash
-# On target host
-# Install from package manager or build from source
-# For Fedora/RHEL:
-sudo dnf install keylime-agent
+# On target host, install build dependencies
+sudo apt-get update
+sudo apt-get install -y \
+  build-essential \
+  pkg-config \
+  libssl-dev \
+  libtss2-dev \
+  libclang-dev \
+  clang \
+  git
 
-# For Ubuntu/Debian:
-# sudo apt-get install keylime-agent
+# Install Rust (if not already installed)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
 
-# Verify installation
-keylime_agent --version
+# Copy working rust-keylime source from spire.funlab.casa
+# This fork uses reqwest 0.12.15 which correctly handles TLS configuration
+# DO NOT use upstream github.com/keylime/rust-keylime (has reqwest 0.13 regression)
+scp -r spire.funlab.casa:/home/tygra/rust-keylime /tmp/rust-keylime-working
+
+# Build keylime_agent
+cd /tmp/rust-keylime-working
+cargo build --release --bin keylime_agent
+
+# Install binary
+sudo cp target/release/keylime_agent /usr/local/bin/keylime_agent
+sudo chmod +x /usr/local/bin/keylime_agent
+
+# Verify it runs
+/usr/local/bin/keylime_agent --help
+
+# Create keylime system user
+sudo useradd -r -s /bin/false -d /var/lib/keylime -m keylime
 ```
+
+**Why use the fork?**
+- Upstream commit `419b888` updated reqwest from 0.12 to 0.13
+- This broke `registrar_tls_enabled` configuration - agent defaults to HTTP instead of HTTPS
+- Our fork stays on reqwest 0.12.15 which works correctly
+- Monitor upstream for fixes: https://github.com/keylime/rust-keylime/commits/master/
 
 ### 3.2: Install Certificates
 
@@ -361,19 +392,23 @@ sudo openssl x509 -in /etc/keylime/certs/agent.crt | \
 ### 3.4: Configure Keylime Agent
 
 ```bash
-# Backup default configuration
-sudo cp /etc/keylime/agent.conf /etc/keylime/agent.conf.backup
+# Create agent configuration
+# NOTE: Replace HOSTNAME and IP_ADDRESS with actual values for the target host
+HOSTNAME="pm01.funlab.casa"
+IP_ADDRESS="10.200.200.10"
 
-# Update configuration for mTLS
 sudo tee /etc/keylime/agent.conf > /dev/null <<EOF
 [agent]
 # Server configuration
 ip = "0.0.0.0"
 port = 9002
+contact_ip = "${IP_ADDRESS}"
+contact_port = 9002
 
 # Registrar configuration
-registrar_ip = "spire.funlab.casa"
-registrar_port = "8891"
+# Use registrar.keylime.funlab.casa on standard HTTPS port 443
+registrar_ip = "registrar.keylime.funlab.casa"
+registrar_port = 443
 
 # mTLS Configuration
 enable_agent_mtls = true
@@ -381,14 +416,18 @@ server_key = "/etc/keylime/certs/agent-pkcs8.key"
 server_cert = "/etc/keylime/certs/agent.crt"
 trusted_client_ca = "/etc/keylime/certs/ca-complete-chain.crt"
 
+# Registrar mTLS - CRITICAL: These settings must be present for TLS to work
+registrar_tls_enabled = true
+registrar_tls_ca_cert = "/etc/keylime/certs/ca-root-only.crt"
+registrar_tls_client_cert = "/etc/keylime/certs/agent.crt"
+registrar_tls_client_key = "/etc/keylime/certs/agent-pkcs8.key"
+
 # Verifier configuration
-verifier_ip = "spire.funlab.casa"
-verifier_port = "8881"
+verifier_ip = "verifier.keylime.funlab.casa"
+verifier_port = "443"
 verifier_tls_ca_cert = "/etc/keylime/certs/ca-root-only.crt"
 verifier_tls_client_cert = "/etc/keylime/certs/agent.crt"
-
-# Registrar mTLS
-registrar_tls_ca_cert = "/etc/keylime/certs/ca-root-only.crt"
+verifier_tls_client_key = "/etc/keylime/certs/agent-pkcs8.key"
 
 # TPM configuration
 tpm_ownerpassword = ""
@@ -398,7 +437,51 @@ log_destination = "stream"
 EOF
 ```
 
-### 3.5: Start Keylime Agent
+### 3.5: Create systemd Service
+
+```bash
+# Create systemd service file for Rust keylime_agent
+sudo tee /etc/systemd/system/keylime_agent.service > /dev/null <<EOF
+[Unit]
+Description=Keylime Agent
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Environment="RUST_LOG=info"
+ExecStart=/usr/local/bin/keylime_agent
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Reload systemd
+sudo systemctl daemon-reload
+```
+
+**Note:** The Rust keylime_agent doesn't accept a `-c` flag for config file. It reads `/etc/keylime/agent.conf` automatically.
+
+### 3.6: Open Firewall Port
+
+```bash
+# Add firewall rule for port 9002
+sudo iptables -I INPUT -p tcp --dport 9002 -j ACCEPT
+
+# Save firewall rules (method varies by distro)
+# For Debian/Ubuntu with iptables-persistent:
+sudo netfilter-persistent save
+
+# For systems without iptables-persistent:
+sudo mkdir -p /etc/iptables
+sudo iptables-save | sudo tee /etc/iptables/rules.v4
+```
+
+### 3.7: Start Keylime Agent
 
 ```bash
 # Enable and start service
@@ -408,9 +491,20 @@ sudo systemctl start keylime_agent
 # Check status
 sudo systemctl status keylime_agent
 
-# View logs
+# View logs (look for "Agent UUID" and "Listening on https://0.0.0.0:9002")
 sudo journalctl -u keylime_agent -f
+
+# Expected log output:
+# INFO keylime_agent > Agent UUID: d432fbb3-d2f1-4a97-9ef7-75bd81c00000
+# INFO keylime::registrar_client > Building Registrar client: scheme=https, registrar=registrar.keylime.funlab.casa:443, TLS=true
+# SUCCESS: Agent d432fbb3-d2f1-4a97-9ef7-75bd81c00000 registered
+# INFO keylime_agent > Listening on https://0.0.0.0:9002
 ```
+
+**Troubleshooting:**
+- If you see `scheme=http` instead of `scheme=https`, the agent wasn't built from the correct fork
+- If registration fails with connection errors, check firewall and network connectivity
+- If you see "Permission denied" errors, ensure the keylime user exists
 
 ---
 
@@ -434,15 +528,19 @@ AGENT_UUID="abc123def456..."  # Replace with actual UUID
 ```bash
 # On verifier host (spire.funlab.casa)
 AGENT_HOST="pm01.funlab.casa"
-AGENT_UUID="abc123def456..."  # From step 4.1
+AGENT_UUID="d432fbb3-d2f1-4a97-9ef7-75bd81c00000"  # From step 4.1
 
-sudo keylime_tenant -v spire.funlab.casa -t ${AGENT_HOST} \
-  --uuid ${AGENT_UUID} \
-  -c add
+# Register with verifier using simplified command
+echo "" | sudo keylime_tenant -c add -t ${AGENT_HOST} -u ${AGENT_UUID}
 
 # Expected output:
-# INFO:keylime.tenant:Agent <UUID> (<HOST>:9002) added to Verifier after 0 tries
+# WARNING:keylime.tenant:DANGER: EK cert checking is disabled...
+# INFO:keylime.tenant:Quote from Agent <UUID> (<HOST>:9002) validated
+# INFO:keylime.tenant:Agent <UUID> (<HOST>:9002) added to Verifier (127.0.0.1:8881) after 0 tries
+# {'code': 200, 'status': 'Success', ...}
 ```
+
+**Note:** The `echo ""` provides an empty password for the keystore prompt.
 
 ### 4.3: Check Registration Status
 
@@ -863,9 +961,89 @@ echo "✅ Onboarding complete for ${HOSTNAME}"
 **Solution:** Test TLS handshake with `openssl s_client` before registration
 **Verification:** Verify return code must be 0 (ok)
 
+### 6. Rust Keylime - reqwest Library Regression
+**Problem:** Upstream Rust Keylime (reqwest 0.13) ignores `registrar_tls_enabled` and defaults to HTTP
+**Symptoms:**
+- Logs show `Building Registrar client: scheme=http, TLS=false`
+- nginx returns "400 Bad Request" when agent tries to connect
+- Connection failures with "Connection reset by peer"
+
+**Solution:** Build from custom fork with reqwest 0.12.15
+**Source:** `/home/tygra/rust-keylime` on spire.funlab.casa (NOT upstream!)
+**Breaking Commit:** `419b888 Update reqwest from 0.12 to 0.13` (upstream)
+**Verification:**
+- Logs must show `scheme=https, TLS=true`
+- `cargo tree | grep reqwest` should show version 0.12.15
+- Check monthly if upstream fixed the issue
+
+**Impact:** All new hosts must be built from custom fork until upstream resolves this regression
+
 ---
 
 **Document Status:** ✅ PRODUCTION READY
-**Tested On:** auth.funlab.casa, spire.funlab.casa, ca.funlab.casa
-**Next Use:** pm01.funlab.casa, wilykit.funlab.casa
-**Last Updated:** 2026-02-14 09:30 EST
+**Tested On:** auth.funlab.casa, spire.funlab.casa, ca.funlab.casa, pm01.funlab.casa
+**Last Updated:** 2026-02-14 10:00 EST
+**Known Issues:** Upstream reqwest 0.13 breaks TLS - use custom fork
+
+---
+
+## Future Enhancements
+
+### Phase: Enforce mTLS on Standard HTTPS Port 443
+
+**Current Configuration (Production):**
+```ini
+# SPIRE Server - Direct gRPC connection
+server_address = "spire.funlab.casa"
+server_port = "8081"
+
+# OpenBao - HTTPS without mandatory client cert
+openbao_addr = "https://openbao.funlab.casa:8088"
+
+# Keylime Services - Already on port 443 with mTLS ✅
+registrar_ip = "registrar.keylime.funlab.casa"
+registrar_port = 443
+verifier_ip = "verifier.keylime.funlab.casa"
+verifier_port = 443
+```
+
+**Target Configuration (Future):**
+```ini
+# All services on standard HTTPS port with mTLS enforcement
+server_address = "spire.funlab.casa"
+server_port = "443"  # Proxied through nginx with mTLS
+
+openbao_addr = "https://openbao.funlab.casa:443"  # mTLS required
+
+registrar_ip = "registrar.keylime.funlab.casa"
+registrar_port = 443  # Already implemented ✅
+verifier_ip = "verifier.keylime.funlab.casa"
+verifier_port = 443  # Already implemented ✅
+```
+
+**Benefits:**
+- **Standardization**: All services on port 443 (no custom ports)
+- **Security**: mTLS enforcement for all service-to-service communication
+- **Defense in Depth**: No unauthenticated access to any infrastructure service
+- **Simplified Firewall**: Only port 443 needs to be open
+
+**Migration Checklist:**
+- [ ] Verify SPIRE gRPC protocol compatibility through nginx proxy
+- [ ] Test SPIRE agent attestation with proxied connection
+- [ ] Configure OpenBao to require client certificates
+- [ ] Test OpenBao functionality with mTLS enforcement
+- [ ] Update all client applications to provide certificates
+- [ ] Verify workload identity access patterns still work
+- [ ] Update monitoring/health check systems with client certs
+- [ ] Document rollback procedure
+- [ ] Plan maintenance window for migration
+- [ ] Update all onboarding documentation
+
+**Risks & Considerations:**
+- SPIRE uses gRPC which may have specific proxy requirements
+- Health checks will need valid client certificates
+- Certificate rotation becomes more critical
+- Troubleshooting becomes more complex
+- Emergency access procedures need client cert access
+
+**Status:** Planned for future implementation phase
