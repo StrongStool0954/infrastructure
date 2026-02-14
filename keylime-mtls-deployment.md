@@ -548,7 +548,156 @@ telnet spire.funlab.casa 8891
 
 ---
 
-**Deployment Status:** ✅ CONFIGURED (restart pending)
-**Next Action:** Restart Keylime services to activate mTLS
-**Priority:** Test mTLS connections after restart
-**Last Updated:** 2026-02-10 20:48 EST
+**Deployment Status:** ✅ OPERATIONAL - All agents attesting
+**Last Updated:** 2026-02-14 09:05 EST
+
+---
+
+## UPDATE 2026-02-14: Certificate Trust Chain Fix
+
+### Problem Discovered
+
+After deploying mTLS, Keylime agents failed to attest with the error:
+```
+ERROR: Keylime agent does not recognize mTLS certificate form tenant
+```
+
+**Root Cause:** Incorrect root CA certificate in trust bundles
+- Original `ca-root-only.crt` had incomplete DN: `CN=Eye of Thundera`
+- Correct root CA DN: `CN=Eye of Thundera, O=Funlab.Casa, OU=Tower of Omens, C=US`
+- DN mismatch prevented certificate chain validation during mTLS handshake
+
+### Certificate Chain Issues Found
+
+1. **Agent certificates contained only leaf certificate** (no intermediate)
+2. **Verifier/Registrar certificates contained only leaf certificate**
+3. **CA trust bundles had wrong root certificate** with incomplete DN
+4. **TLS handshake failed** with "unable to verify the first certificate" (error 21)
+
+### Solution Applied
+
+#### 1. Fixed Root CA Certificate
+```bash
+# Copied correct root CA from step-ca
+cp /etc/step-ca/certs/root_ca.crt /etc/keylime/certs/ca-root-only.crt
+
+# Rebuilt complete chain (intermediate + root)
+cat /etc/keylime/certs/ca.crt /etc/keylime/certs/ca-root-only.crt > \
+    /etc/keylime/certs/ca-complete-chain.crt
+```
+
+#### 2. Added Intermediate Certificates to All Certificate Files
+```bash
+# agent.crt, verifier.crt, registrar.crt now contain:
+# 1. Leaf certificate (agent/verifier/registrar)
+# 2. Intermediate certificate (Book of Omens)
+
+# Example for agent:
+cat agent.crt.backup ca.crt > agent.crt
+```
+
+#### 3. Deployed Corrected Certificates to All Hosts
+
+**On ca.funlab.casa:**
+- ✅ Fixed ca-complete-chain.crt and ca-root-only.crt
+- ✅ Added intermediate to agent.crt
+- ✅ Restarted keylime_agent
+
+**On auth.funlab.casa:**
+- ✅ Copied corrected CA certificates from ca.funlab.casa
+- ✅ Added intermediate to agent.crt
+- ✅ Restarted keylime_agent
+
+**On spire.funlab.casa:**
+- ✅ Copied corrected CA certificates from ca.funlab.casa
+- ✅ Added intermediate to agent.crt, verifier.crt, registrar.crt
+- ✅ Restarted keylime_verifier and keylime_registrar
+
+### Verification Results
+
+After fixing certificates and restarting services:
+
+```bash
+# TLS handshake test - SUCCESS
+openssl s_client -connect ca.funlab.casa:9002 \
+  -CAfile ca-complete-chain.crt \
+  -cert verifier.crt -key verifier-pkcs8.key
+# Result: Verify return code: 0 (ok) ✅
+
+# All agents registered successfully
+keylime_tenant -v spire.funlab.casa -t ca.funlab.casa -c add
+# Result: Agent added to Verifier after 0 tries ✅
+```
+
+### Final Status - All 3 Agents Attesting
+
+```
+✅ auth.funlab.casa
+   - Attestation Status: PASS
+   - Attestation Count: 12+
+   - Operational State: Get Quote
+
+✅ spire.funlab.casa
+   - Attestation Status: PASS
+   - Attestation Count: 10+
+   - Operational State: Get Quote
+
+✅ ca.funlab.casa
+   - Attestation Status: PASS
+   - Attestation Count: 119+
+   - Operational State: Get Quote
+```
+
+### Key Lessons Learned
+
+1. **Certificate chains must be complete:** TLS certificates must include intermediate certificates
+2. **Root CA DN must match exactly:** Missing O, OU, C fields break chain validation
+3. **Verify with openssl:** `openssl verify -CAfile` catches chain issues before deployment
+4. **Test TLS handshake:** `openssl s_client` reveals mTLS problems immediately
+5. **Source of truth:** step-ca's `/etc/step-ca/certs/root_ca.crt` has correct root CA
+
+### Certificate File Structure (Corrected)
+
+```
+/etc/keylime/certs/
+├── agent.crt              # Leaf cert + intermediate (2 certs)
+├── agent-pkcs8.key        # Private key (PKCS#8 format)
+├── verifier.crt           # Leaf cert + intermediate (2 certs)
+├── verifier-pkcs8.key     # Private key (PKCS#8 format)
+├── registrar.crt          # Leaf cert + intermediate (2 certs)
+├── registrar-pkcs8.key    # Private key (PKCS#8 format)
+├── ca.crt                 # Book of Omens intermediate CA
+├── ca-root-only.crt       # Eye of Thundera root CA (correct DN)
+└── ca-complete-chain.crt  # Intermediate + Root (2 certs)
+```
+
+### Updated Certificate Verification Commands
+
+```bash
+# Verify root CA has correct DN
+openssl x509 -in /etc/keylime/certs/ca-root-only.crt -noout -subject
+# Should show: CN=Eye of Thundera, O=Funlab.Casa, OU=Tower of Omens, C=US
+
+# Verify agent.crt contains full chain (2 certificates)
+grep -c 'BEGIN CERTIFICATE' /etc/keylime/certs/agent.crt
+# Should return: 2
+
+# Verify certificate chain validation works
+openssl x509 -in /etc/keylime/certs/agent.crt | \
+  openssl verify -CAfile /etc/keylime/certs/ca-complete-chain.crt
+# Should return: stdin: OK
+
+# Test mTLS handshake
+openssl s_client -connect <agent_host>:9002 \
+  -CAfile /etc/keylime/certs/ca-complete-chain.crt \
+  -cert /etc/keylime/certs/verifier.crt \
+  -key /etc/keylime/certs/verifier-pkcs8.key
+# Should return: Verify return code: 0 (ok)
+```
+
+---
+
+**Deployment Status:** ✅ OPERATIONAL - All agents attesting
+**Next Action:** Monitor attestation status; implement auto-renewal
+**Priority:** Set up certificate renewal automation
+**Last Updated:** 2026-02-14 09:05 EST
