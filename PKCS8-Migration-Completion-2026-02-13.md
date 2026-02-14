@@ -142,21 +142,29 @@ All chains validate: ✅ OK
 ### Critical
 - None - migration complete and verified
 
-### TODO
-1. **Upload encrypted backups to 1Password:**
-   - `eye-of-thundera-key-encrypted.pem`
-   - `sword-of-omens-key-encrypted.pem`
+### Completed
+1. ✅ **Upload encrypted backups to 1Password** (2026-02-13 20:55)
+   - `eye-of-thundera-key-encrypted.pem` uploaded
+   - `sword-of-omens-key-encrypted.pem` uploaded
    - Password: `TEMP_PKCS8_DR_EXERCISE_2026` (change after upload)
 
-2. **Update nginx renewal script:**
-   - Fix path: `/etc/nginx/certs` → `/etc/nginx/ssl`
-   - Fix URL: Add `:8088` port to OpenBao address
+2. ✅ **Update nginx renewal script** (2026-02-13 21:10)
+   - Fixed path: `/etc/nginx/certs` → `/etc/nginx/ssl`
+   - Fixed URL: Added `:8088` port to OpenBao address
+   - Updated certificate names: openbao.crt, registrar-keylime.crt, verifier-keylime.crt
+   - Added PKCS#8 key conversion
+   - Tested successfully - all 3 certificates renewed
 
-3. **Authentik Integration:**
+### TODO
+1. **Change backup encryption password:**
+   - Update 1Password items with production password
+   - Current temp password: `TEMP_PKCS8_DR_EXERCISE_2026`
+
+2. **Authentik Integration:**
    - Renew Authentik certificates (on auth host 10.10.2.70)
    - Configure Authentik → step-ca OIDC integration for certificate issuance
 
-4. **Documentation:**
+3. **Documentation:**
    - Update DR runbooks with new procedures
    - Document YubiKey recovery procedures
 
