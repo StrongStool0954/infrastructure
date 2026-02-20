@@ -1,0 +1,10 @@
+[Unit]
+Description=Keylime Agent Garbage Collection
+Documentation=man:keylime_tenant(1)
+After=keylime_verifier.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/keylime-gc.sh
+StandardOutput=journal
+StandardError=journal

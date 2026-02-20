@@ -1,0 +1,14 @@
+[Unit]
+Description=Daily Keylime Agent Garbage Collection
+Documentation=man:keylime_tenant(1)
+
+[Timer]
+# Run once daily, offset from midnight to avoid competing with cert renewal
+OnCalendar=daily
+RandomizedDelaySec=30min
+# Also run once 30 minutes after boot to catch leftover orphans from the last run
+OnBootSec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
