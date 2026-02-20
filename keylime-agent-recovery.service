@@ -1,0 +1,8 @@
+[Unit]
+Description=Keylime Agent Recovery - reset FAILED state for rebooted agents
+Documentation=https://keylime.dev/
+After=keylime_verifier.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/keylime-agent-recovery.sh

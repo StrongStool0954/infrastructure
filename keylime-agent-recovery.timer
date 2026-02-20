@@ -1,0 +1,13 @@
+[Unit]
+Description=Periodic Keylime Agent State Recovery
+Documentation=https://keylime.dev/
+
+[Timer]
+# Run 2 minutes after boot (verifier needs time to start first)
+OnBootSec=2min
+# Then every 5 minutes - detects rebooted agents and resumes verifier polling
+OnUnitActiveSec=5min
+# No randomized delay - recovery should be prompt
+
+[Install]
+WantedBy=timers.target
