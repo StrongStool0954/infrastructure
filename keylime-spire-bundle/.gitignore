@@ -1,0 +1,6 @@
+# Compiled binaries - too large for git, built separately
+bin/
+# Backup files from in-place edits
+*.backup
+# Old versioned installer copies
+install-v*.sh

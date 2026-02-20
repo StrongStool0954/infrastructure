@@ -1,0 +1,89 @@
+Keylime + SPIRE Complete Bundle
+Version: 2.10.1
+Build Date: 2026-02-20
+
+Components:
+- Keylime Agent (Rust) - compiled from /home/tygra/rust-keylime (reqwest 0.12)
+- SPIRE Agent v1.14.1
+- SPIRE Server v1.14.1
+- SPIRE Keylime Plugins (agent + server)
+- Post-Installation Verification Script v2.7.0
+- Automated Installation Script v2.10.1
+- SPIRE CA Auto-Update System v1.0.0
+- Certificate Renewal System v1.0.0
+
+Supported Platforms:
+- Rocky Linux 9.x (using rocky9 binaries)
+- Debian 12 Bookworm (using debian-bookworm binaries)
+- Debian 13 Trixie (using debian-bookworm binaries)
+
+Key Features (v2.9.0):
+- Automatic SPIRE CA bundle updates to system trust store
+- Updates every 6 hours to maintain browser/system trust
+- Eliminates manual CA bundle installation
+- Fresh SPIRE trust bundle (valid until Feb 20 01:34:47 2026 GMT)
+- All v2.8.0 features preserved
+
+SPIRE CA Auto-Update:
+- Service: update-spire-ca.service
+- Timer: update-spire-ca.timer (runs every 6h)
+- Script: /usr/local/bin/update-spire-ca.sh
+- Installs to: /usr/local/share/ca-certificates/spire-funlab-casa.crt
+- Benefits: Browsers and system tools automatically trust SPIRE certificates
+
+SPIRE Agent Configuration:
+- Keylime NodeAttestor with mTLS enabled
+- Local Keylime agent: https://127.0.0.1:9002
+- CA cert: /etc/keylime/certs/ca-chain.crt
+- Client cert: /etc/keylime/certs/agent.crt
+- Client key: /etc/keylime/certs/agent-pkcs8.key
+- SPIRE server: spire.funlab.casa:443
+- Trust bundle: /etc/spire/bootstrap.crt
+
+Installation:
+1. Extract bundle on target host
+2. Run ./install.sh as root
+3. Services start automatically
+4. SPIRE CA bundle automatically installed to system trust
+
+Verification:
+- Run: sudo /usr/local/bin/keylime-verify
+- Daily health checks via keylime-verify.timer
+- CA bundle updates via update-spire-ca.timer (every 6h)
+
+Changes in v2.10.1:
+- Added ca-chain.crt symlink creation in installer (Rust keylime_agent PKI module
+  hardcodes /etc/keylime/certs/ca-chain.crt; hosts with ca-complete-chain.crt need
+  a symlink or the PKI module returns Invalid, tries OpenBao bootstrap, fails at boot)
+- Symlink logic: ca-complete-chain.crt preferred, falls back to ca.crt, warns if neither
+
+Changes in v2.10.0:
+- Added renew-keylime-certs.sh (auto-detects host IP, renews agent/registrar/verifier
+  certs based on which services are installed — no hostname-specific hardcoding)
+- Added keylime-cert-renewal.service (oneshot, Before=keylime_agent, fails gracefully)
+- Added keylime-cert-renewal.timer (retries at T+10min after boot, then every 12h)
+- Fixed keylime_agent.service: removed ProtectSystem=strict (breaks secure storage
+  mount), added AmbientCapabilities=CAP_SYS_ADMIN, added After=keylime-cert-renewal
+- Fixed spire-agent.service: removed Requires=keylime_agent (hard dependency caused
+  permanent boot failure if Keylime certs expired), changed to soft After=
+- These changes resolve the circular boot dependency after power outages:
+  cert renewal fails gracefully → agent starts with existing certs → Keylime
+  attests → SPIRE socket appears → OpenBao unseals → timer renews certs ✓
+
+Changes in v2.9.0:
+- Added automatic SPIRE CA bundle update system
+- System trust store kept current with SPIRE CA rotation
+- Browsers (Firefox/Chrome) automatically trust SPIRE certificates
+- No manual CA installation required
+- Timer runs every 6 hours + 2 min after boot
+- Integrated into main installer
+
+Changes in v2.8.0:
+- Updated SPIRE trust bundle with fresh certificates
+
+Changes in v2.7.0:
+- Installer creates spire user with keylime group membership
+- Pre-flight check verifies spire can read Keylime certificates
+
+Build Instructions:
+See BUILD.md for details on compiling components from source.
